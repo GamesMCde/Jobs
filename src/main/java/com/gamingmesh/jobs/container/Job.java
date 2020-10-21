@@ -84,11 +84,10 @@ public class Job {
 
     private Parser moneyEquation, xpEquation, pointsEquation;
 
-    private List<String> fDescription = new ArrayList<>();
-
+    private final List<String> fDescription = new ArrayList<>();
     private List<String> worldBlacklist = new ArrayList<>();
 
-    private List<Quest> quests = new ArrayList<>();
+    private final List<Quest> quests = new ArrayList<>();
     private int maxDailyQuests = 1;
 
     private int id = 0;
@@ -125,7 +124,10 @@ public class Job {
     }
 
     public void addBoost(CurrencyType type, double point, int[] times) {
-	if (times.length < 3) {
+	final int h = times[2],
+	    m = times[1],
+	    s = times[0];
+	if (times.length < 3 || (h == 0 && m == 0 && s == 0)) {
 	    addBoost(type, point);
 	    return;
 	}
@@ -133,12 +135,11 @@ public class Job {
 	final Calendar cal = Calendar.getInstance();
 	cal.setTime(new Date());
 
-	cal.set(Calendar.HOUR_OF_DAY, cal.get(Calendar.HOUR_OF_DAY) + times[2]);
-	cal.set(Calendar.MINUTE, cal.get(Calendar.MINUTE) + times[1]);
-	cal.set(Calendar.SECOND, cal.get(Calendar.SECOND) + times[0]);
+	cal.set(Calendar.HOUR_OF_DAY, cal.get(Calendar.HOUR_OF_DAY) + h);
+	cal.set(Calendar.MINUTE, cal.get(Calendar.MINUTE) + m);
+	cal.set(Calendar.SECOND, cal.get(Calendar.SECOND) + s);
 
-	long time = cal.getTimeInMillis();
-	boost.add(type, point, time);
+	boost.add(type, point, cal.getTimeInMillis());
     }
 
     public void setBoost(BoostMultiplier BM) {
@@ -510,23 +511,23 @@ public class Job {
 //	return getNextQuest(null, null);
 //    }
 
-    Random rand = new Random(System.nanoTime());
-
     public Quest getNextQuest(List<String> excludeQuests, Integer level) {
-	List<Quest> ls = new ArrayList<>(this.quests);
+	List<Quest> ls = new ArrayList<>(quests);
 	Collections.shuffle(ls);
 
 	int i = 0;
 	while (true) {
 	    i++;
+
+	    final Random rand = new Random(System.nanoTime());
 	    int target = rand.nextInt(100);
 	    for (Quest one : ls) {
-		if (one.getChance() <= target && (excludeQuests == null || !excludeQuests.contains(one.getConfigName().toLowerCase()))) {
-		    if (!one.isInLevelRange(level))
-			continue;
+		if (one.getChance() >= target && (excludeQuests == null || !excludeQuests.contains(one.getConfigName().toLowerCase()))
+			    && one.isInLevelRange(level)) {
 		    return one;
 		}
 	    }
+
 	    if (i > 20)
 		return null;
 	}

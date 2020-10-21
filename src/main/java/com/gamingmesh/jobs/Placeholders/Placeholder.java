@@ -15,13 +15,13 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import com.gamingmesh.jobs.Jobs;
-import com.gamingmesh.jobs.CMILib.CMIMaterial;
 import com.gamingmesh.jobs.container.CurrencyType;
 import com.gamingmesh.jobs.container.Job;
 import com.gamingmesh.jobs.container.JobProgression;
 import com.gamingmesh.jobs.container.JobsPlayer;
 import com.gamingmesh.jobs.container.Title;
 import com.gamingmesh.jobs.container.TopList;
+import com.gamingmesh.jobs.container.blockOwnerShip.BlockTypes;
 import com.gamingmesh.jobs.stuff.TimeManage;
 
 public class Placeholder {
@@ -405,11 +405,11 @@ public class Placeholder {
 	    case user_bstandcount:
 		return Integer.toString(user.getBrewingStandCount());
 	    case user_maxbstandcount:
-		return Integer.toString(user.getMaxBrewingStandsAllowed());
+		return Integer.toString(user.getMaxOwnerShipAllowed(BlockTypes.BREWING_STAND));
 	    case user_furncount:
 		return Integer.toString(user.getFurnaceCount());
 	    case user_maxfurncount:
-		return Integer.toString(user.getMaxFurnacesAllowed(CMIMaterial.FURNACE));
+		return Integer.toString(user.getMaxOwnerShipAllowed(BlockTypes.FURNACE));
 	    case user_doneq:
 		return Integer.toString(user.getDoneQuests());
 	    case user_seen:
@@ -456,10 +456,10 @@ public class Placeholder {
 		    return Integer.toString(user.getLimit(t));
 		case plimit_$1:
 		    t = CurrencyType.getByName(vals.get(0));
-		    return Double.toString(user.getPaymentLimit().GetAmount(t));
+		    return Double.toString(user.getPaymentLimit().getAmount(t));
 		case plimit_tleft_$1:
 		    t = CurrencyType.getByName(vals.get(0));
-		    return TimeManage.to24hourShort(user.getPaymentLimit().GetLeftTime(t));
+		    return TimeManage.to24hourShort(user.getPaymentLimit().getLeftTime(t));
 		case user_jlevel_$1:
 		    return j == null ? "0" : Integer.toString(j.getLevel());
 		case user_jexp_$1:

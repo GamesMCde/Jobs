@@ -102,7 +102,8 @@ public class GeneralConfigManager {
 	hideJobsInfoWithoutPermission, UseTaxes, TransferToServerAccount, TakeFromPlayersPayment, AutoJobJoinUse, AllowDelevel,
 	BossBarEnabled, BossBarShowOnEachAction, BossBarsMessageByDefault, ExploreCompact, DBCleaningJobsUse, DBCleaningUsersUse,
 	DisabledWorldsUse, UseAsWhiteListWorldList, PaymentMethodsMoney, PaymentMethodsPoints, PaymentMethodsExp, MythicMobsEnabled,
-	LoggingUse, payForCombiningItems, BlastFurnacesReassign, SmokerReassign, payForStackedEntities, payForEachVTradeItem;
+	LoggingUse, payForCombiningItems, BlastFurnacesReassign = false, SmokerReassign = false, payForStackedEntities,
+	payForEachVTradeItem;
 
     public ItemStack guiBackButton, guiNextButton, guiFiller;
 
@@ -210,36 +211,6 @@ public class GeneralConfigManager {
 	return modifyChat;
     }
 
-    /**
-     * Get the chat prefix string from file
-     * @deprecated Use {@link #modifyChatPrefix}
-     * @return
-     */
-    @Deprecated
-    public String getModifyChatPrefix() {
-	return modifyChatPrefix;
-    }
-
-    /**
-     * Get the chat suffix string from file
-     * @deprecated Use {@link #modifyChatSuffix}
-     * @return
-     */
-    @Deprecated
-    public String getModifyChatSuffix() {
-	return modifyChatSuffix;
-    }
-
-    /**
-     * Get the chat separator string from file
-     * @deprecated Use {@link #modifyChatSeparator}
-     * @return
-     */
-    @Deprecated
-    public String getModifyChatSeparator() {
-	return modifyChatSeparator;
-    }
-
     public synchronized int getEconomyBatchDelay() {
 	return economyBatchDelay;
     }
@@ -273,7 +244,7 @@ public class GeneralConfigManager {
 	    return true;
 
 	if (UseAsWhiteListWorldList) {
-	    return DisabledWorldsList.isEmpty() && DisabledWorldsList.contains(world);
+	    return DisabledWorldsList.contains(world);
 	}
 
 	if (DisabledWorldsList.isEmpty())
@@ -470,7 +441,7 @@ public class GeneralConfigManager {
 	c.addComment("enable-pay-near-spawner",
 	    "Option to allow payment to be made when killing mobs from a spawner.",
 	    "Use jobs.nearspawner.[amount] to define multiplayer. Example jobs.nearspawner.-0.5 will pay half of payment, jobs.nearspawner.-1 will not pay at all");
-	payNearSpawner = c.get("enable-pay-near-spawner", false);
+	payNearSpawner = c.get("enable-pay-near-spawner", true);
 
 	c.addComment("enable-pay-creative", "Option to allow payment to be made in creative mode. This ignoring when a group has 'jobs.paycreative' permission.");
 	payInCreative = c.get("enable-pay-creative", false);
@@ -478,7 +449,7 @@ public class GeneralConfigManager {
 	c.addComment("enable-pay-for-exploring-when-flying", "Option to allow payment to be made for exploring when player flies");
 	payExploringWhenFlying = c.get("enable-pay-for-exploring-when-flying", false);
 
-	if (Jobs.getVersionCheckManager().getVersion().isEqualOrHigher(Version.v1_9_R1)) {
+	if (Version.isCurrentEqualOrHigher(Version.v1_9_R1)) {
 	    c.addComment("enable-pay-for-exploring-when-gliding", "Option to allow payment to be made for exploring when player gliding.");
 	    payExploringWhenGliding = c.get("enable-pay-for-exploring-when-gliding", false);
 	}
@@ -866,7 +837,7 @@ public class GeneralConfigManager {
 	c.addComment("ActionBars.Messages.EnabledByDefault", "When this set to true player will see action bar messages by default");
 	ActionBarsMessageByDefault = c.get("ActionBars.Messages.EnabledByDefault", true);
 
-	if (Jobs.getVersionCheckManager().getVersion().isEqualOrHigher(Version.v1_9_R1)) {
+	if (Version.isCurrentEqualOrHigher(Version.v1_9_R1)) {
 	    c.addComment("BossBar.Enabled", "Enables BossBar feature", "Works only from 1.9 mc version");
 	    BossBarEnabled = c.get("BossBar.Enabled", true);
 
@@ -896,11 +867,11 @@ public class GeneralConfigManager {
 	c.addComment("Sounds", "Sounds", "Extra sounds on some events",
 	    "All sounds can be found in https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html");
 	SoundLevelupUse = c.get("Sounds.LevelUp.use", true);
-	SoundLevelupSound = c.get("Sounds.LevelUp.sound", Jobs.getVersionCheckManager().getVersion().isLower(Version.v1_9_R1) ? "LEVEL_UP " : "ENTITY_PLAYER_LEVELUP");
+	SoundLevelupSound = c.get("Sounds.LevelUp.sound", Version.isCurrentLower(Version.v1_9_R1) ? "LEVEL_UP " : "ENTITY_PLAYER_LEVELUP");
 	SoundLevelupVolume = c.get("Sounds.LevelUp.volume", 1);
 	SoundLevelupPitch = c.get("Sounds.LevelUp.pitch", 3);
 	SoundTitleChangeUse = c.get("Sounds.TitleChange.use", true);
-	SoundTitleChangeSound = c.get("Sounds.TitleChange.sound", Jobs.getVersionCheckManager().getVersion().isLower(Version.v1_9_R1) ? "LEVEL_UP " : "ENTITY_PLAYER_LEVELUP");
+	SoundTitleChangeSound = c.get("Sounds.TitleChange.sound", Version.isCurrentLower(Version.v1_9_R1) ? "LEVEL_UP " : "ENTITY_PLAYER_LEVELUP");
 	SoundTitleChangeVolume = c.get("Sounds.TitleChange.volume", 1);
 	SoundTitleChangePitch = c.get("Sounds.TitleChange.pitch", 3);
 

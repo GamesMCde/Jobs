@@ -22,6 +22,7 @@ import com.gamingmesh.jobs.CMILib.RawMessage;
 import com.gamingmesh.jobs.CMILib.Version;
 import com.gamingmesh.jobs.CMILib.ActionBarManager;
 import com.gamingmesh.jobs.CMILib.CMIChatColor;
+import com.gamingmesh.jobs.CMILib.CMIMaterial;
 import com.gamingmesh.jobs.CMILib.CMIReflections;
 import com.gamingmesh.jobs.CMILib.VersionChecker;
 import com.gamingmesh.jobs.Gui.GuiManager;
@@ -34,6 +35,8 @@ import com.gamingmesh.jobs.api.JobsPrePaymentEvent;
 import com.gamingmesh.jobs.commands.JobsCommands;
 import com.gamingmesh.jobs.config.*;
 import com.gamingmesh.jobs.container.*;
+import com.gamingmesh.jobs.container.blockOwnerShip.BlockOwnerShip;
+import com.gamingmesh.jobs.container.blockOwnerShip.BlockTypes;
 import com.gamingmesh.jobs.dao.JobsDAO;
 import com.gamingmesh.jobs.dao.JobsDAOData;
 import com.gamingmesh.jobs.dao.JobsManager;
@@ -83,6 +86,8 @@ public class Jobs extends JavaPlugin {
     private static BlockProtectionManager bpManager;
     private static JobsManager dbManager;
 
+    private final Set<BlockOwnerShip> blockOwnerShips = new HashSet<>();
+
     private static PistonProtectionListener pistonProtectionListener;
 
     private static ConfigManager configManager;
@@ -95,13 +100,10 @@ public class Jobs extends JavaPlugin {
     private static Job noneJob;
     private static WeakHashMap<Job, Integer> usedSlots = new WeakHashMap<>();
     private static HashMap<Integer, Job> jobsIds = new HashMap<>();
-//	public static WeakHashMap<String, Double> GlobalBoost = new WeakHashMap<String, Double>();
 
     private static BufferedEconomy economy;
     private static PermissionHandler permissionHandler;
     private static PermissionManager permissionManager;
-
-//    private static ItemManager itemManager;
 
     public static BufferedPaymentThread paymentThread;
     private static DatabaseSaveThread saveTask;
@@ -115,6 +117,48 @@ public class Jobs extends JavaPlugin {
     protected static SelectionManager smanager;
 
     private static PointsData pointsDatabase;
+
+    public Optional<BlockOwnerShip> getBlockOwnerShip(CMIMaterial type) {
+	return getBlockOwnerShip(type, true);
+    }
+
+    public Optional<BlockOwnerShip> getBlockOwnerShip(CMIMaterial type, boolean addNew) {
+	if (((type == CMIMaterial.FURNACE || type == CMIMaterial.LEGACY_BURNING_FURNACE) && !gConfigManager.isFurnacesReassign())
+			|| (type == CMIMaterial.BLAST_FURNACE && !gConfigManager.BlastFurnacesReassign)
+			|| ((type == CMIMaterial.BREWING_STAND || type == CMIMaterial.LEGACY_BREWING_STAND) && !gConfigManager.isBrewingStandsReassign())
+			|| (type == CMIMaterial.SMOKER && !gConfigManager.SmokerReassign)) {
+	    return Optional.empty();
+	}
+
+	BlockOwnerShip b = null;
+	for (BlockOwnerShip ship : blockOwnerShips) {
+	    if (ship.getMaterial() == type) {
+		b = ship;
+		break;
+	    }
+	}
+
+	if (addNew && b == null) {
+	    b = new BlockOwnerShip(type);
+	    blockOwnerShips.add(b);
+	}
+
+	return Optional.ofNullable(b);
+    }
+
+    public Optional<BlockOwnerShip> getBlockOwnerShip(BlockTypes type) {
+	for (BlockOwnerShip ship : blockOwnerShips) {
+	    if (ship.getType() == type) {
+		return Optional.ofNullable(ship);
+	    }
+	}
+
+	return Optional.empty();
+    }
+
+    public Set<BlockOwnerShip> getBlockOwnerShips() {
+	return blockOwnerShips;
+    }
 
     public static PistonProtectionListener getPistonProtectionListener() {
 	if (pistonProtectionListener == null)
@@ -286,7 +330,7 @@ public class Jobs extends JavaPlugin {
      */
     public CMIScoreboardManager getCMIScoreboardManager() {
 	if (cmiScoreboardManager == null)
-		cmiScoreboardManager = new CMIScoreboardManager();
+	    cmiScoreboardManager = new CMIScoreboardManager();
 
 	return cmiScoreboardManager;
     }
@@ -577,10 +621,6 @@ public class Jobs extends JavaPlugin {
 	return permissionManager;
     }
 
-//    public static ItemManager getItemManager() {
-//	return itemManager;
-//    }
-
     /**
      * Sets the economy handler
      * @param eco - the economy handler
@@ -612,8 +652,6 @@ public class Jobs extends JavaPlugin {
     public void onEnable() {
 	instance = this;
 
-//	itemManager = new ItemManager(this);
-
 	try {
 	    Class<?> nmsClass = Class.forName("com.gamingmesh.jobs.nmsUtil." + Version.getCurrent().getShortVersion());
 	    if (NMS.class.isAssignableFrom(nmsClass)) {
@@ -644,8 +682,10 @@ public class Jobs extends JavaPlugin {
 
 	    bbManager = new BossBarManager(this);
 
-	    getCommand("jobs").setExecutor(getCommandManager());
-	    getCommand("jobs").setTabCompleter(new TabComplete());
+	    Optional.ofNullable(getCommand("jobs")).ifPresent(j -> {
+		j.setExecutor(getCommandManager());
+		j.setTabCompleter(new TabComplete());
+	    });
 
 	    startup();
 
@@ -736,7 +776,18 @@ public class Jobs extends JavaPlugin {
 	getDBManager().getDB().loadAllJobsWorlds();
 	getDBManager().getDB().loadAllJobsNames();
 
-	FurnaceBrewingHandling.load();
+	if (Version.isCurrentEqualOrLower(Version.v1_13_R1)) {
+	    instance.getBlockOwnerShip(CMIMaterial.LEGACY_BREWING_STAND).ifPresent(BlockOwnerShip::load);
+	    instance.getBlockOwnerShip(CMIMaterial.LEGACY_BURNING_FURNACE).ifPresent(BlockOwnerShip::load);
+	} else {
+	    instance.getBlockOwnerShip(CMIMaterial.FURNACE).ifPresent(BlockOwnerShip::load);
+	    instance.getBlockOwnerShip(CMIMaterial.BREWING_STAND).ifPresent(BlockOwnerShip::load);
+	}
+	if (Version.isCurrentEqualOrHigher(Version.v1_14_R1)) {
+	    instance.getBlockOwnerShip(CMIMaterial.BLAST_FURNACE).ifPresent(BlockOwnerShip::load);
+	    instance.getBlockOwnerShip(CMIMaterial.SMOKER).ifPresent(BlockOwnerShip::load);
+	}
+
 	ToggleBarHandling.load();
 	usedSlots.clear();
 	for (Job job : jobs) {
@@ -773,12 +824,10 @@ public class Jobs extends JavaPlugin {
 
 	HandlerList.unregisterAll(instance);
 
-//	GUIManager.CloseInventories();
-//	shopManager.CloseInventories();
 	dao.saveExplore();
-
 	getBpManager().saveCache();
-	FurnaceBrewingHandling.save();
+
+	blockOwnerShips.forEach(BlockOwnerShip::save);
 	ToggleBarHandling.save();
 
 	shutdown();
@@ -1189,8 +1238,7 @@ public class Jobs extends JavaPlugin {
     }
 
     private static int getPlayerExperience(Player player) {
-	int bukkitExp = (ExpToLevel(player.getLevel()) + Math.round(deltaLevelToExp(player.getLevel()) * player.getExp()));
-	return bukkitExp;
+	return (ExpToLevel(player.getLevel()) + Math.round(deltaLevelToExp(player.getLevel()) * player.getExp()));
     }
 
     // total xp calculation based by lvl
@@ -1267,11 +1315,9 @@ public class Jobs extends JavaPlugin {
     }
 
     public static boolean hasPermission(Object sender, String perm, boolean rawEnable) {
-	if (!(sender instanceof Player))
+	if (!(sender instanceof Player) || ((Player) sender).hasPermission(perm))
 	    return true;
 
-	if (((Player) sender).hasPermission(perm))
-	    return true;
 	if (!rawEnable) {
 	    ((Player) sender).sendMessage(lManager.getMessage("general.error.permission"));
 	    return false;

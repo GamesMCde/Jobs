@@ -963,15 +963,15 @@ public class PlayerManager {
 	if (ent instanceof Tameable) {
 	    Tameable t = (Tameable) ent;
 	    if (t.isTamed() && t.getOwner() instanceof Player) {
-		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay");
+		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", false, false, true);
 		if (petPay != null)
 		    boost.add(BoostOf.PetPay, new BoostMultiplier().add(petPay));
 	    }
 	}
 
-	if (ent != null && HookManager.getMyPetManager() != null && HookManager.getMyPetManager().isMyPet(ent)) {
+	if (ent != null && HookManager.getMyPetManager() != null && HookManager.getMyPetManager().isMyPet(ent, player.getPlayer())) {
 	    if (petPay == null)
-		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay");
+		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", false, false, true);
 	    if (petPay != null)
 		boost.add(BoostOf.PetPay, new BoostMultiplier().add(petPay));
 	}
@@ -984,7 +984,7 @@ public class PlayerManager {
 
 	if (getall) {
 	    if (petPay == null)
-		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", force);
+		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", force, false, true);
 	    if (petPay != null)
 		boost.add(BoostOf.PetPay, new BoostMultiplier().add(petPay));
 	    Double amount = Jobs.getPermissionManager().getMaxPermission(player, "jobs.nearspawner", force);
@@ -994,10 +994,12 @@ public class PlayerManager {
 
 	boost.add(BoostOf.Permission, getBoost(player, prog, force));
 	boost.add(BoostOf.Global, prog.getBoost());
+
 	if (Jobs.getGCManager().useDynamicPayment)
 	    boost.add(BoostOf.Dynamic, new BoostMultiplier().add(prog.getBonus()));
-//	boost.add(BoostOf.Item, Jobs.getPlayerManager().getItemBoost(player.getPlayer(), prog));
+
 	boost.add(BoostOf.Item, getItemBoostNBT(player.getPlayer(), prog));
+
 	if (!Jobs.getRestrictedAreaManager().getRestrictedAres().isEmpty())
 	    boost.add(BoostOf.Area, new BoostMultiplier().add(Jobs.getRestrictedAreaManager().getRestrictedMultiplier(player.getPlayer())));
 	return boost;
@@ -1014,10 +1016,7 @@ public class PlayerManager {
 		    return;
 
 		JobsPlayer jPlayer = getJobsPlayer(player);
-		if (jPlayer == null)
-		    return;
-
-		if (player.hasPermission("jobs.*"))
+		if (jPlayer == null || player.hasPermission("jobs.*"))
 		    return;
 
 		int confMaxJobs = Jobs.getGCManager().getMaxJobs();

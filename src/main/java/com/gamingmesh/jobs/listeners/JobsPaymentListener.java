@@ -18,20 +18,14 @@
 
 package com.gamingmesh.jobs.listeners;
 
-import com.gamingmesh.jobs.CMILib.ActionBarManager;
-import com.gamingmesh.jobs.CMILib.CMIChatColor;
-import com.gamingmesh.jobs.CMILib.CMIEnchantment;
-import com.gamingmesh.jobs.CMILib.CMIEntityType;
-import com.gamingmesh.jobs.CMILib.CMIMaterial;
-import com.gamingmesh.jobs.CMILib.ItemManager;
-import com.gamingmesh.jobs.CMILib.Version;
+import com.gamingmesh.jobs.CMILib.*;
 import com.gamingmesh.jobs.Jobs;
 import com.gamingmesh.jobs.actions.*;
 import com.gamingmesh.jobs.api.JobsChunkChangeEvent;
 import com.gamingmesh.jobs.container.*;
+import com.gamingmesh.jobs.container.blockOwnerShip.BlockOwnerShip;
+import com.gamingmesh.jobs.container.blockOwnerShip.BlockOwnerShip.ownershipFeedback;
 import com.gamingmesh.jobs.hooks.HookManager;
-import com.gamingmesh.jobs.stuff.FurnaceBrewingHandling;
-import com.gamingmesh.jobs.stuff.FurnaceBrewingHandling.ownershipFeedback;
 import com.google.common.base.Objects;
 
 import org.bukkit.Bukkit;
@@ -61,11 +55,19 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.enchantment.EnchantItemEvent;
-import org.bukkit.event.entity.*;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntityTameEvent;
+import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.entity.SlimeSplitEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.inventory.BrewEvent;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.FurnaceSmeltEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -85,6 +87,7 @@ import org.bukkit.inventory.StonecutterInventory;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
+import org.bukkit.permissions.PermissionAttachmentInfo;
 import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.ArrayList;
@@ -98,8 +101,13 @@ public class JobsPaymentListener implements Listener {
 
     private Jobs plugin;
 
-    public static final String furnaceOwnerMetadata = "jobsFurnaceOwner",
-	brewingOwnerMetadata = "jobsBrewingOwner", VegyMetadata = "VegyTimer";
+    /**
+     * @deprecated Use {@link Jobs#getBlockOwnerShip(CMIMaterial)}
+     */
+    @Deprecated
+    public static final String furnaceOwnerMetadata = "jobsFurnaceOwner", blastFurnaceOwnerMetadata = "jobsBlastFurnaceOwner",
+	brewingOwnerMetadata = "jobsBrewingOwner", smokerOwnerMetadata = "jobsSmokerOwner";
+    public static final String VegyMetadata = "VegyTimer";
 
     private final String BlockMetadata = "BlockOwner", CowMetadata = "CowTimer", entityDamageByPlayer = "JobsEntityDamagePlayer";
 
@@ -232,9 +240,6 @@ public class JobsPaymentListener implements Listener {
 
 	// pay
 	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-	if (jPlayer == null)
-	    return;
-
 	if (!Jobs.isPlayerHaveAction(jPlayer, ActionType.MILK)) {
 	    return;
 	}
@@ -302,8 +307,6 @@ public class JobsPaymentListener implements Listener {
 		    Jobs.action(jDamager, new CustomKillInfo(((Sheep) stacked.getLivingEntity()).getColor().name(), ActionType.SHEAR));
 		}
 	    }
-
-	    return;
 	}
 
 	Jobs.action(jDamager, new CustomKillInfo(sheep.getColor().name(), ActionType.SHEAR));
@@ -353,7 +356,7 @@ public class JobsPaymentListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-	Block block = event.getBlock();
+	final Block block = event.getBlock();
 	//disabling plugin in world
 	if (!Jobs.getGCManager().canPerformActionInWorld(block.getWorld()))
 	    return;
@@ -370,13 +373,8 @@ public class JobsPaymentListener implements Listener {
 	if (Jobs.getGCManager().disablePaymentIfRiding && player.isInsideVehicle())
 	    return;
 
-	CMIMaterial cmat = CMIMaterial.get(block);
-	if (cmat == CMIMaterial.FURNACE || cmat == CMIMaterial.SMOKER
-	    || cmat == CMIMaterial.BLAST_FURNACE && block.hasMetadata(furnaceOwnerMetadata))
-	    FurnaceBrewingHandling.removeFurnace(block);
-	else if (cmat == CMIMaterial.BREWING_STAND || cmat == CMIMaterial.LEGACY_BREWING_STAND
-	    && block.hasMetadata(brewingOwnerMetadata))
-	    FurnaceBrewingHandling.removeBrewing(block);
+	// Remove block owner ships
+	plugin.getBlockOwnerShips().forEach(os -> os.remove(block));
 
 	if (!Jobs.getPermissionHandler().hasWorldPermission(player, player.getLocation().getWorld().getName()))
 	    return;
@@ -416,15 +414,15 @@ public class JobsPaymentListener implements Listener {
 	    return;
 	}
 
-	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-	if (jPlayer == null)
-	    return;
-
-	Jobs.action(jPlayer, bInfo, block);
+	Jobs.action(Jobs.getPlayerManager().getJobsPlayer(player), bInfo, block);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
+	// A tool should not trigger a BlockPlaceEvent (fixes stripping logs bug #940)
+	if (CMIMaterial.get(event.getItemInHand().getType()).isTool())
+	    return;
+
 	Block block = event.getBlock();
 
 	//disabling plugin in world
@@ -462,11 +460,7 @@ public class JobsPaymentListener implements Listener {
 	    return;
 	}
 
-	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-	if (jPlayer == null)
-	    return;
-
-	Jobs.action(jPlayer, new BlockActionInfo(block, ActionType.PLACE), block);
+	Jobs.action(Jobs.getPlayerManager().getJobsPlayer(player), new BlockActionInfo(block, ActionType.PLACE), block);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -546,8 +540,6 @@ public class JobsPaymentListener implements Listener {
 		    Jobs.action(jDamager, new EntityActionInfo(stacked.getLivingEntity(), ActionType.TAME));
 		}
 	    }
-
-	    return;
 	}
 
 	Jobs.action(jDamager, new EntityActionInfo(animal, ActionType.TAME));
@@ -886,7 +878,9 @@ public class JobsPaymentListener implements Listener {
 	    return;
 
 	if (Version.isCurrentEqualOrHigher(Version.v1_14_R1) && inv instanceof StonecutterInventory) {
-	    Jobs.action(jPlayer, new ItemActionInfo(resultStack, ActionType.CRAFT));
+		if (event.getAction() != InventoryAction.DROP_ONE_SLOT) {
+			Jobs.action(jPlayer, new ItemActionInfo(resultStack, ActionType.CRAFT));
+		}
 	    return;
 	}
 
@@ -1007,8 +1001,8 @@ public class JobsPaymentListener implements Listener {
 	if (!Jobs.getGCManager().canPerformActionInWorld(block.getWorld()))
 	    return;
 
-	if (block.hasMetadata(furnaceOwnerMetadata))
-	    FurnaceBrewingHandling.removeFurnace(block);
+	final Block finalBlock = block;
+	plugin.getBlockOwnerShip(CMIMaterial.get(finalBlock)).ifPresent(os -> os.remove(finalBlock));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -1016,20 +1010,13 @@ public class JobsPaymentListener implements Listener {
 	if (event.getDestination().getType() != InventoryType.BREWING)
 	    return;
 
-	if (!Jobs.getGCManager().PreventBrewingStandFillUps)
+	if (!Jobs.getGCManager().PreventBrewingStandFillUps || event.getItem().getType() == Material.AIR)
 	    return;
 
-	if (event.getItem().getType() == Material.AIR)
-	    return;
+	final BrewingStand stand = (BrewingStand) event.getDestination().getHolder();
 
-	BrewingStand stand = (BrewingStand) event.getDestination().getHolder();
-	//disabling plugin in world
-	if (!Jobs.getGCManager().canPerformActionInWorld(stand.getWorld()))
-	    return;
-
-	Block block = stand.getBlock();
-	if (block.hasMetadata(brewingOwnerMetadata))
-	    FurnaceBrewingHandling.removeBrewing(block);
+	if (Jobs.getGCManager().canPerformActionInWorld(stand.getWorld()))
+	    plugin.getBlockOwnerShip(CMIMaterial.get(stand.getBlock())).ifPresent(os -> os.remove(stand.getBlock()));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -1039,10 +1026,12 @@ public class JobsPaymentListener implements Listener {
 	if (!Jobs.getGCManager().canPerformActionInWorld(block.getWorld()))
 	    return;
 
-	if (!block.hasMetadata(furnaceOwnerMetadata))
+	BlockOwnerShip bos = plugin.getBlockOwnerShip(CMIMaterial.get(block), false).orElse(null);
+	if (bos == null || !block.hasMetadata(bos.getMetadataName())) {
 	    return;
+	}
 
-	List<MetadataValue> data = block.getMetadata(furnaceOwnerMetadata);
+	List<MetadataValue> data = bos.getBlockMetadatas(block);
 	if (data.isEmpty())
 	    return;
 
@@ -1070,11 +1059,7 @@ public class JobsPaymentListener implements Listener {
 	if (Jobs.getGCManager().disablePaymentIfRiding && player.isInsideVehicle())
 	    return;
 
-	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-	if (jPlayer == null)
-	    return;
-
-	Jobs.action(jPlayer, new ItemActionInfo(event.getResult(), ActionType.SMELT));
+	Jobs.action(Jobs.getPlayerManager().getJobsPlayer(player), new ItemActionInfo(event.getResult(), ActionType.SMELT));
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -1190,7 +1175,7 @@ public class JobsPaymentListener implements Listener {
 	if (e.getDamager() instanceof Player) {
 	    pDamager = (Player) e.getDamager();
 	    // Checking if killer is MyPet animal
-	} else if (HookManager.getMyPetManager() != null && HookManager.getMyPetManager().isMyPet(e.getDamager())) {
+	} else if (HookManager.getMyPetManager() != null && HookManager.getMyPetManager().isMyPet(e.getDamager(), null)) {
 	    UUID uuid = HookManager.getMyPetManager().getOwnerOfPet(e.getDamager());
 	    if (uuid != null)
 		pDamager = Bukkit.getPlayer(uuid);
@@ -1207,6 +1192,15 @@ public class JobsPaymentListener implements Listener {
 
 	if (pDamager == null)
 	    return;
+
+	// Prevent payment for killing mobs with mypet by denying permission
+	if (HookManager.getMyPetManager() != null && HookManager.getMyPetManager().isMyPet(e.getDamager(), null)) {
+	    for (PermissionAttachmentInfo perm : pDamager.getEffectivePermissions()) {
+		if (perm.getPermission().equals("jobs.petpay") && !perm.getValue()) {
+		    return;
+		}
+	    }
+	}
 
 	// check if in creative
 	if (!payIfCreative(pDamager))
@@ -1245,14 +1239,12 @@ public class JobsPaymentListener implements Listener {
 		    && HookManager.getWildStackerHandler().isStackedEntity(lVictim)) {
 	    for (com.bgsoftware.wildstacker.api.objects.StackedEntity stacked : HookManager.getWildStackerHandler().getStackedEntities()) {
 		if (stacked.getType() == lVictim.getType()) {
-		    Jobs.action(jDamager, new EntityActionInfo(stacked.getLivingEntity(), ActionType.KILL), pDamager, stacked.getLivingEntity());
+		    Jobs.action(jDamager, new EntityActionInfo(stacked.getLivingEntity(), ActionType.KILL), e.getDamager(), stacked.getLivingEntity());
 		}
 	    }
-
-	    return;
 	}
 
-	Jobs.action(jDamager, new EntityActionInfo(lVictim, ActionType.KILL), pDamager, lVictim);
+	Jobs.action(jDamager, new EntityActionInfo(lVictim, ActionType.KILL), e.getDamager(), lVictim);
 
 	// Payment for killing player with particular job, except NPC's
 	if (lVictim instanceof Player && !lVictim.hasMetadata("NPC")) {
@@ -1299,11 +1291,7 @@ public class JobsPaymentListener implements Listener {
 	if (Jobs.getGCManager().disablePaymentIfRiding && player.isInsideVehicle())
 	    return;
 
-	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-	if (jPlayer == null)
-	    return;
-
-	Jobs.action(jPlayer, new EntityActionInfo(event.getEntity(), ActionType.PLACE));
+	Jobs.action(Jobs.getPlayerManager().getJobsPlayer(player), new EntityActionInfo(event.getEntity(), ActionType.PLACE));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -1330,11 +1318,7 @@ public class JobsPaymentListener implements Listener {
 	if (Jobs.getGCManager().disablePaymentIfRiding && player.isInsideVehicle())
 	    return;
 
-	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-	if (jPlayer == null)
-	    return;
-
-	Jobs.action(jPlayer, new EntityActionInfo(event.getEntity(), ActionType.BREAK));
+	Jobs.action(Jobs.getPlayerManager().getJobsPlayer(player), new EntityActionInfo(event.getEntity(), ActionType.BREAK));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -1382,11 +1366,7 @@ public class JobsPaymentListener implements Listener {
 	if (Jobs.getGCManager().disablePaymentIfRiding && player.isInsideVehicle())
 	    return;
 
-	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-	if (jPlayer == null)
-	    return;
-
-	Jobs.action(jPlayer, new EntityActionInfo(ent, ActionType.PLACE));
+	Jobs.action(Jobs.getPlayerManager().getJobsPlayer(player), new EntityActionInfo(ent, ActionType.PLACE));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -1421,11 +1401,7 @@ public class JobsPaymentListener implements Listener {
 	    return;
 
 	// pay
-	JobsPlayer jDamager = Jobs.getPlayerManager().getJobsPlayer(pDamager);
-	if (jDamager == null)
-	    return;
-
-	Jobs.action(jDamager, new EntityActionInfo(ent, ActionType.BREAK), e.getDamager());
+	Jobs.action(Jobs.getPlayerManager().getJobsPlayer(pDamager), new EntityActionInfo(ent, ActionType.BREAK), e.getDamager());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -1489,10 +1465,7 @@ public class JobsPaymentListener implements Listener {
 		return;
 
 	    // pay
-	    JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-	    if (jPlayer == null)
-		return;
-	    Jobs.action(jPlayer, new EntityActionInfo(animal, ActionType.BREED));
+	    Jobs.action(Jobs.getPlayerManager().getJobsPlayer(player), new EntityActionInfo(animal, ActionType.BREED));
 	}
     }
 
@@ -1584,18 +1557,11 @@ public class JobsPaymentListener implements Listener {
 	    }
 	}
 
-	for (Block block : event.blockList()) {
+	for (final Block block : event.blockList()) {
 	    if (block == null)
 		continue;
 
-	    CMIMaterial cmat = CMIMaterial.get(block);
-
-	    if (cmat == CMIMaterial.FURNACE || cmat == CMIMaterial.SMOKER
-		|| cmat == CMIMaterial.BLAST_FURNACE && block.hasMetadata(furnaceOwnerMetadata))
-		FurnaceBrewingHandling.removeFurnace(block);
-	    else if (cmat == CMIMaterial.BREWING_STAND || cmat == CMIMaterial.LEGACY_BREWING_STAND
-		&& block.hasMetadata(brewingOwnerMetadata))
-		FurnaceBrewingHandling.removeBrewing(block);
+	    plugin.getBlockOwnerShips().forEach(b -> b.remove(block));
 
 	    if (Jobs.getGCManager().useBlockProtection && block.getState().hasMetadata(BlockMetadata))
 		return;
@@ -1645,40 +1611,21 @@ public class JobsPaymentListener implements Listener {
 		}
 	}
 
-	if (cmat == CMIMaterial.FURNACE || cmat == CMIMaterial.LEGACY_BURNING_FURNACE
-	    || cmat == CMIMaterial.SMOKER || cmat == CMIMaterial.BLAST_FURNACE) {
-	    ownershipFeedback done = FurnaceBrewingHandling.registerFurnaces(p, block);
-	    if (done == ownershipFeedback.tooMany) {
-		boolean report = false;
-
-		if (block.hasMetadata(furnaceOwnerMetadata)) {
-		    List<MetadataValue> data = block.getMetadata(furnaceOwnerMetadata);
-		    if (data.isEmpty())
-			return;
-
-		    // only care about first
-		    MetadataValue value = data.get(0);
-		    String uuid = value.asString();
-
-		    if (!uuid.equals(p.getUniqueId().toString()))
-			report = true;
-		} else
-		    report = true;
-
-		if (report)
-		    ActionBarManager.send(p, Jobs.getLanguage().getMessage("general.error.noFurnaceRegistration"));
-	    } else if (done == ownershipFeedback.newReg && jPlayer != null) {
-		ActionBarManager.send(p, Jobs.getLanguage().getMessage("general.error.newFurnaceRegistration",
-		    "[current]", jPlayer.getFurnaceCount(),
-		    "[max]", jPlayer.getMaxFurnacesAllowed(cmat) == 0 ? "-" : jPlayer.getMaxFurnacesAllowed(cmat)));
+	boolean isBrewingStand = cmat == CMIMaterial.BREWING_STAND || cmat == CMIMaterial.LEGACY_BREWING_STAND;
+	boolean isFurnace = cmat == CMIMaterial.FURNACE || cmat == CMIMaterial.LEGACY_BURNING_FURNACE;
+	if (isFurnace || cmat == CMIMaterial.SMOKER || cmat == CMIMaterial.BLAST_FURNACE || isBrewingStand) {
+	    BlockOwnerShip blockOwner = plugin.getBlockOwnerShip(CMIMaterial.get(block)).orElse(null);
+	    if (blockOwner == null) {
+		return;
 	    }
-	} else if (cmat == CMIMaterial.BREWING_STAND || cmat == CMIMaterial.LEGACY_BREWING_STAND) {
-	    ownershipFeedback done = FurnaceBrewingHandling.registerBrewingStand(p, block);
+
+	    String name = Jobs.getLanguage().getMessage("general.info.blocks." + (isBrewingStand ? "brewingstand" : isFurnace
+			? "furnace" : cmat == CMIMaterial.SMOKER ? "smoker" : cmat == CMIMaterial.BLAST_FURNACE ? "blastfurnace" : ""));
+	    ownershipFeedback done = blockOwner.register(p, block);
 	    if (done == ownershipFeedback.tooMany) {
 		boolean report = false;
-
-		if (block.hasMetadata(brewingOwnerMetadata)) {
-		    List<MetadataValue> data = block.getMetadata(brewingOwnerMetadata);
+		if (block.hasMetadata(blockOwner.getMetadataName())) {
+		    List<MetadataValue> data = blockOwner.getBlockMetadatas(block);
 		    if (data.isEmpty())
 			return;
 
@@ -1692,15 +1639,15 @@ public class JobsPaymentListener implements Listener {
 		    report = true;
 
 		if (report)
-		    ActionBarManager.send(p, Jobs.getLanguage().getMessage("general.error.noBrewingRegistration"));
+		    ActionBarManager.send(p, Jobs.getLanguage().getMessage("general.error.noRegistration", "[block]", name));
 	    } else if (done == ownershipFeedback.newReg && jPlayer != null) {
-		ActionBarManager.send(p, Jobs.getLanguage().getMessage("general.error.newBrewingRegistration",
-		    "[current]", jPlayer.getBrewingStandCount(),
-		    "[max]", jPlayer.getMaxBrewingStandsAllowed() == 0 ? "-" : jPlayer.getMaxBrewingStandsAllowed()));
+		ActionBarManager.send(p, Jobs.getLanguage().getMessage("general.error.newRegistration", "[block]", name,
+		    "[current]", blockOwner.getTotal(jPlayer.getUniqueId()),
+		    "[max]", jPlayer.getMaxOwnerShipAllowed(blockOwner.getType()) == 0 ? "-" : jPlayer.getMaxOwnerShipAllowed(blockOwner.getType())));
 	    }
 	} else if (Version.isCurrentEqualOrHigher(Version.v1_13_R1) &&
-	    !block.getType().toString().startsWith("STRIPPED_") &&
-	    event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+	    block.getType().toString().startsWith("STRIPPED_") &&
+	    event.getAction() == Action.RIGHT_CLICK_BLOCK && jPlayer != null) {
 	    ItemStack iih = Jobs.getNms().getItemInMainHand(p);
 	    if (iih.getType().toString().endsWith("_AXE")) {
 		// check if player is riding
@@ -1712,10 +1659,8 @@ public class JobsPaymentListener implements Listener {
 		    - Jobs.getNms().getDurability(iih) != iih.getType().getMaxDurability())
 		    return;
 
-		Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> {
-		    if (block.getType().toString().startsWith("STRIPPED_") && jPlayer != null)
-			Jobs.action(jPlayer, new BlockActionInfo(block, ActionType.STRIPLOGS), block);
-		}, 1);
+		Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () ->
+		    Jobs.action(jPlayer, new BlockActionInfo(block, ActionType.STRIPLOGS), block), 1);
 	    }
 	}
     }
@@ -1744,7 +1689,7 @@ public class JobsPaymentListener implements Listener {
 	if (Jobs.getGCManager().disablePaymentIfRiding && player.isInsideVehicle())
 	    return;
 
-	if (Jobs.getVersionCheckManager().getVersion().isEqualOrHigher(Version.v1_9_R2)
+	if (Version.getCurrent().isEqualOrHigher(Version.v1_9_R2)
 	    && !Jobs.getGCManager().payExploringWhenGliding && player.isGliding())
 	    return;
 

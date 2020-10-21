@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
@@ -35,10 +36,10 @@ import com.gamingmesh.jobs.CMILib.ActionBarManager;
 import com.gamingmesh.jobs.CMILib.CMIChatColor;
 import com.gamingmesh.jobs.CMILib.CMIMaterial;
 import com.gamingmesh.jobs.Signs.SignTopType;
+import com.gamingmesh.jobs.container.blockOwnerShip.BlockTypes;
 import com.gamingmesh.jobs.dao.JobsDAO;
 import com.gamingmesh.jobs.economy.PaymentData;
 import com.gamingmesh.jobs.resources.jfep.Parser;
-import com.gamingmesh.jobs.stuff.FurnaceBrewingHandling;
 import com.gamingmesh.jobs.stuff.TimeManage;
 
 public class JobsPlayer {
@@ -161,7 +162,7 @@ public class JobsPlayer {
 	    return true;
 	PaymentData data = getPaymentLimit();
 	Integer value = limits.get(type);
-	if (data.IsReachedLimit(type, value == null ? 0 : value)) {
+	if (data.isReachedLimit(type, value == null ? 0 : value)) {
 	    String name = type.getName().toLowerCase();
 
 	    if (player.isOnline() && !data.isInformed() && !data.isReseted()) {
@@ -173,15 +174,15 @@ public class JobsPlayer {
 		    player.sendMessage(Jobs.getLanguage().getMessage("command.limit.output.reached" + name + "limit"));
 		    player.sendMessage(Jobs.getLanguage().getMessage("command.limit.output.reached" + name + "limit2"));
 		}
-		data.setInformed();
+		data.setInformed(true);
 	    }
-	    if (data.IsAnnounceTime(limit.getAnnouncementDelay()) && player.isOnline())
-		ActionBarManager.send(player, Jobs.getLanguage().getMessage("command.limit.output." + name + "time", "%time%", TimeManage.to24hourShort(data.GetLeftTime(type))));
+	    if (data.isAnnounceTime(limit.getAnnouncementDelay()) && player.isOnline())
+		ActionBarManager.send(player, Jobs.getLanguage().getMessage("command.limit.output." + name + "time", "%time%", TimeManage.to24hourShort(data.getLeftTime(type))));
 	    if (data.isReseted())
 		data.setReseted(false);
 	    return false;
 	}
-	data.AddAmount(type, amount);
+	data.addAmount(type, amount);
 	return true;
     }
 
@@ -687,7 +688,7 @@ public class JobsPlayer {
 
 		    if (method == DisplayMethod.FULL || method == DisplayMethod.JOB) {
 			if (gotTitle) {
-			    builder.append(" ");
+			    builder.append(' ');
 			}
 
 			String honorificpart = prog.getJob().getNameWithColor() + CMIChatColor.WHITE;
@@ -1067,10 +1068,7 @@ public class JobsPlayer {
 		}
 	}
 
-	List<QuestProgression> pr = new ArrayList<>();
-	tmp.values().forEach(pr::add);
-
-	return pr;
+	return tmp.values().stream().collect(Collectors.toList());
     }
 
     public String getQuestProgressionString() {
@@ -1192,48 +1190,74 @@ public class JobsPlayer {
 	}
     }
 
+    /**
+     * @deprecated {@link Jobs#getBlockOwnerShip(BlockTypes)}
+     * @return the furnace count
+     */
+    @Deprecated
     public int getFurnaceCount() {
-	return FurnaceBrewingHandling.getTotalFurnaces(getUniqueId());
+	return !Jobs.getInstance().getBlockOwnerShip(BlockTypes.FURNACE).isPresent() ? 0 :
+		Jobs.getInstance().getBlockOwnerShip(BlockTypes.FURNACE).get().getTotal(getUniqueId());
     }
 
+    /**
+     * @deprecated {@link Jobs#getBlockOwnerShip(BlockTypes)}
+     * @return the brewing stand count
+     */
+    @Deprecated
     public int getBrewingStandCount() {
-	return FurnaceBrewingHandling.getTotalBrewingStands(getUniqueId());
+	return !Jobs.getInstance().getBlockOwnerShip(BlockTypes.BREWING_STAND).isPresent() ? 0 :
+		Jobs.getInstance().getBlockOwnerShip(BlockTypes.BREWING_STAND).get().getTotal(getUniqueId());
     }
 
+    /**
+     * @deprecated use {@link #getMaxOwnerShipAllowed(CMIMaterial)}
+     * @return max allowed brewing stands
+     */
+    @Deprecated
     public int getMaxBrewingStandsAllowed() {
 	Double maxV = Jobs.getPermissionManager().getMaxPermission(this, "jobs.maxbrewingstands");
 
-	if (maxV == null || maxV == 0)
+	if (maxV == 0)
 	    maxV = (double) Jobs.getGCManager().getBrewingStandsMaxDefault();
 
 	return maxV.intValue();
     }
 
     /**
-     * @deprecated use {@link #getMaxFurnacesAllowed(CMIMaterial)}
-     * @return
+     * @deprecated use {@link #getMaxOwnerShipAllowed(CMIMaterial)}
+     * @return the max allowed furnaces
      */
     @Deprecated
     public int getMaxFurnacesAllowed() {
-	return getMaxFurnacesAllowed(CMIMaterial.FURNACE);
+	return getMaxOwnerShipAllowed(BlockTypes.FURNACE);
     }
 
-    public int getMaxFurnacesAllowed(CMIMaterial type) {
-	String perm = "jobs.max" + (type == CMIMaterial.FURNACE || type == CMIMaterial.LEGACY_BURNING_FURNACE
-	    ? "furnaces" : type == CMIMaterial.BLAST_FURNACE ? "blastfurnaces" : type == CMIMaterial.SMOKER ? "smokers" : "");
+    /**
+     * Returns the max allowed owner ship for the given block type.
+     * @param type {@link BlockTypes}
+     * @return max allowed owner ship
+     */
+    public int getMaxOwnerShipAllowed(BlockTypes type) {
+	String perm = "jobs.max" + (type == BlockTypes.FURNACE
+	    ? "furnaces" : type == BlockTypes.BLAST_FURNACE ? "blastfurnaces" : type == BlockTypes.SMOKER ? "smokers" : 
+	    type == BlockTypes.BREWING_STAND ? "brewingstands" : "");
 	if (perm.isEmpty())
 	    return 0;
 
 	Double maxV = Jobs.getPermissionManager().getMaxPermission(this, perm);
 
-	if (maxV == 0D && (type == CMIMaterial.FURNACE || type == CMIMaterial.LEGACY_BURNING_FURNACE))
+	if (maxV == 0D && type == BlockTypes.FURNACE)
 	    maxV = (double) Jobs.getGCManager().getFurnacesMaxDefault();
 
-	if (maxV == 0D && type == CMIMaterial.BLAST_FURNACE)
+	if (maxV == 0D && type == BlockTypes.BLAST_FURNACE)
 	    maxV = (double) Jobs.getGCManager().BlastFurnacesMaxDefault;
 
-	if (maxV == 0D && type == CMIMaterial.SMOKER)
+	if (maxV == 0D && type == BlockTypes.SMOKER)
 	    maxV = (double) Jobs.getGCManager().SmokersMaxDefault;
+
+	if (maxV == 0 && type == BlockTypes.BREWING_STAND)
+	    maxV = (double) Jobs.getGCManager().getBrewingStandsMaxDefault();
 
 	return maxV.intValue();
     }

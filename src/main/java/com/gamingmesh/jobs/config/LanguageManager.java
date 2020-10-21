@@ -72,7 +72,6 @@ public class LanguageManager {
 
 	    c.get("economy.error.nomoney", "&cSorry, no money left in national bank!");
 	    c.get("limitedItem.error.levelup", "&cYou need to level up in [jobname] to use this item!");
-	    c.get("general.Spawner", "&r[type] Spawner");
 	    c.get("general.info.toplineseparator", "&7*********************** &6%playername% &7***********************");
 	    c.get("general.info.separator", "&7*******************************************************");
 	    c.get("general.info.time.days", "&e%days% &6days ");
@@ -82,6 +81,10 @@ public class LanguageManager {
 	    c.get("general.info.invalidPage", "&cInvalid page");
 	    c.get("general.info.true", "&2True");
 	    c.get("general.info.false", "&cFalse");
+	    c.get("general.info.blocks.furnace", "Furnace");
+	    c.get("general.info.blocks.smoker", "Smoker");
+	    c.get("general.info.blocks.blastfurnace", "Blast furnace");
+	    c.get("general.info.blocks.brewingstand", "Brewing stand");
 	    c.get("general.admin.error", "&cThere was an error in the command.");
 	    c.get("general.admin.success", "&eYour command has been performed.");
 	    c.get("general.error.noHelpPage", "&cThere is no help page by this number!");
@@ -95,10 +98,8 @@ public class LanguageManager {
 	    c.get("general.error.fromconsole", "&cYou can use this command only from console!");
 	    c.get("general.error.worldisdisabled", "&cYou can't use command in this world!");
 
-	    c.get("general.error.newFurnaceRegistration", "&eRegistered new ownership for furnace &7[current]&e/&f[max]");
-	    c.get("general.error.newBrewingRegistration", "&eRegistered new ownership for brewing stand &7[current]&e/&f[max]");
-	    c.get("general.error.noFurnaceRegistration", "&cYou've reached max furnace count!");
-	    c.get("general.error.noBrewingRegistration", "&cYou've reached max brewing stand count!");
+	    c.get("general.error.newRegistration", "&eRegistered new ownership for [block] &7[current]&e/&f[max]");
+	    c.get("general.error.noRegistration", "&cYou've reached max [block] count!");
 
 	    c.get("command.help.output.info", "Type /jobs [cmd] ? for more information about a command.");
 	    c.get("command.help.output.cmdUsage", "&2Usage: &7[command]");
@@ -150,6 +151,13 @@ public class LanguageManager {
 	    c.get("command.expboost.output.boostalladded", "Exp boost of %boost% added for all jobs!");
 	    c.get("command.expboost.output.boostadded", "Exp boost of &e%boost% &aadded for &e%jobname%!");
 	    c.get("command.expboost.output.infostats", "&c-----> &aExp rate x%boost% enabled&c <-------");
+
+	    c.get("command.schedule.help.info", "Enables the given scheduler");
+	    c.get("command.schedule.help.args", "enable [scheduleName] [untilTime]");
+	    Jobs.getGCManager().getCommandArgs().put("schedule", Arrays.asList("enable", "[scheduleName]", "[untilTime]"));
+	    c.get("command.schedule.output.noScheduleFound", "&cSchedule with this name not found.");
+	    c.get("command.schedule.output.alreadyEnabled", "&cThis schedule already enabled.");
+	    c.get("command.schedule.output.enabled", "&eSchedule have been enabled from&a %from%&e until&a %until%");
 
 	    c.get("command.itembonus.help.info", "Check item bonus");
 	    c.get("command.itembonus.help.args", "");
@@ -459,7 +467,7 @@ public class LanguageManager {
 	    c.get("command.clearownership.help.info", "Clear block ownership");
 	    c.get("command.clearownership.help.args", "[playername]");
 	    Jobs.getGCManager().getCommandArgs().put("clearownership", Arrays.asList("[playername]"));
-	    c.get("command.clearownership.output.cleared", "&2Removed &7[furnaces] &2furnaces and &7[brewing] &2brewing stands");
+	    c.get("command.clearownership.output.cleared", "&2Removed &7[furnaces] &2furnaces, &7[brewing] &2brewing stands, &7[smoker]&2 smokers and &7[blast]&2 blast furnaces.");
 
 	    c.get("command.skipquest.help.info", "Skip defined quest and get new one");
 	    c.get("command.skipquest.help.args", "[jobname] [questname] (playerName)");
@@ -630,7 +638,6 @@ public class LanguageManager {
 
 	    c.get("message.cowtimer", "&eYou still need to wait &6%time% &esec to get paid for this job.");
 	    c.get("message.blocktimer", "&eYou need to wait &3[time] &esec more to get paid for this!");
-	    c.get("message.placeblocktimer", "&eYou can't place blocks faster than &6[time] &esec in the same place!");
 	    c.get("message.taxes", "&3[amount] &eserver taxes were transferred to this account");
 
 	    c.get("message.boostStarted", "&eJobs boost time have been started!");

@@ -24,10 +24,11 @@ public class TitleManager {
 	Title title = null;
 	for (Title t : titles) {
 	    if (title == null) {
-		if (t.getLevelReq() <= level && (t.getJobName() == null || t.getJobName().equalsIgnoreCase(jobName)))
+		if (t.getLevelReq() <= level && (t.getJobName().isEmpty() || t.getJobName().equalsIgnoreCase(jobName)))
 		    title = t;
 	    } else {
-		if (t.getLevelReq() <= level && t.getLevelReq() > title.getLevelReq() && (t.getJobName() == null || t.getJobName().equalsIgnoreCase(jobName)))
+		if (t.getLevelReq() <= level && t.getLevelReq() > title.getLevelReq() && (t.getJobName().isEmpty()
+			|| t.getJobName().equalsIgnoreCase(jobName)))
 		    title = t;
 	    }
 	}
@@ -45,11 +46,12 @@ public class TitleManager {
 	ConfigReader c = null;
 	try {
 	    c = new ConfigReader("titleConfig.yml");
-	} catch (Throwable e) {
+	} catch (Exception e) {
 	    e.printStackTrace();
 	}
 	if (c == null)
 	    return;
+
 	c.copyDefaults(true);
 
 	c.header(Arrays.asList(
@@ -126,21 +128,20 @@ public class TitleManager {
 	    c.save();
 	} else
 	    for (String titleKey : titleSection.getKeys(false)) {
-		String jobName = null;
-		String titleName = titleSection.getString(titleKey + ".Name");
-		String titleShortName = titleSection.getString(titleKey + ".ShortName");
-		CMIChatColor titleColor = CMIChatColor.getColor(titleSection.getString(titleKey + ".ChatColour", ""));
+		String jobName = "",
+		    titleName = titleSection.getString(titleKey + ".Name", ""),
+		    titleShortName = titleSection.getString(titleKey + ".ShortName", "");
+		CMIChatColor titleColor = CMIChatColor.getColor(titleSection.getString(titleKey + ".ChatColour"));
 		int levelReq = titleSection.getInt(titleKey + ".levelReq", -1);
 
 		if (titleSection.isString(titleKey + ".JobName"))
-		    jobName = titleSection.getString(titleKey + ".JobName");
+		    jobName = titleSection.getString(titleKey + ".JobName", "");
 
-		if (titleName == null) {
+		if (titleName.isEmpty()) {
 		    Jobs.getPluginLogger().severe("Title " + titleKey + " has an invalid Name property. Skipping!");
 		    continue;
 		}
-
-		if (titleShortName == null) {
+		if (titleShortName.isEmpty()) {
 		    Jobs.getPluginLogger().severe("Title " + titleKey + " has an invalid ShortName property. Skipping!");
 		    continue;
 		}
