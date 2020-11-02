@@ -123,13 +123,6 @@ public class Jobs extends JavaPlugin {
     }
 
     public Optional<BlockOwnerShip> getBlockOwnerShip(CMIMaterial type, boolean addNew) {
-	if (((type == CMIMaterial.FURNACE || type == CMIMaterial.LEGACY_BURNING_FURNACE) && !gConfigManager.isFurnacesReassign())
-			|| (type == CMIMaterial.BLAST_FURNACE && !gConfigManager.BlastFurnacesReassign)
-			|| ((type == CMIMaterial.BREWING_STAND || type == CMIMaterial.LEGACY_BREWING_STAND) && !gConfigManager.isBrewingStandsReassign())
-			|| (type == CMIMaterial.SMOKER && !gConfigManager.SmokerReassign)) {
-	    return Optional.empty();
-	}
-
 	BlockOwnerShip b = null;
 	for (BlockOwnerShip ship : blockOwnerShips) {
 	    if (ship.getMaterial() == type) {
@@ -797,10 +790,8 @@ public class Jobs extends JavaPlugin {
 	getPermissionHandler().registerPermissions();
 
 	// set the system to auto save
-	if (getGCManager().getSavePeriod() > 0) {
-	    saveTask = new DatabaseSaveThread(getGCManager().getSavePeriod());
-	    saveTask.start();
-	}
+	saveTask = new DatabaseSaveThread(getGCManager().getSavePeriod());
+	saveTask.start();
 
 	// schedule payouts to buffered payments
 	paymentThread = new BufferedPaymentThread(getGCManager().getEconomyBatchDelay());
@@ -997,7 +988,7 @@ public class Jobs extends JavaPlugin {
 
 		checkDailyQuests(jPlayer, prog.getJob(), info);
 
-		if (jobinfo == null || gConfigManager.disablePaymentIfMaxLevelReached && prog.getLevel() >= prog.getJob().getMaxLevel()) {
+		if (jobinfo == null || (gConfigManager.disablePaymentIfMaxLevelReached && prog.getLevel() >= prog.getJob().getMaxLevel())) {
 		    continue;
 		}
 
@@ -1285,11 +1276,17 @@ public class Jobs extends JavaPlugin {
 	if (jobsExpGainEvent.isCancelled())
 	    return;
 
+	boolean limited = true;
 	for (CurrencyType one : CurrencyType.values()) {
-	    if (!jPlayer.isUnderLimit(one, payment.get(one)))
-		return;
+	    if (jPlayer.isUnderLimit(one, payment.get(one))) {
+		limited = false;
+		break;
+	    }
 	}
 
+	if (limited)
+	    return;
+	
 	economy.pay(jPlayer, payment.getPayment());
 
 	JobProgression prog = jPlayer.getJobProgression(job);

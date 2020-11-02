@@ -293,7 +293,8 @@ public class LanguageManager {
 	    c.get("command.stats.help.args", "[playername]");
 	    Jobs.getGCManager().getCommandArgs().put("stats", Arrays.asList("[playername]"));
 	    c.get("command.stats.error.nojob", "Please join a job first.");
-	    c.get("command.stats.output", "Level %joblevel% for %jobname%: %jobxp%/%jobmaxxp% xp");
+	    c.get("command.stats.output.message", "Level %joblevel% for %jobname%: %jobxp%/%jobmaxxp% xp");
+	    c.get("command.stats.output.max-level", "     &cMax level   -   %jobname%");
 	    c.get("command.stats.bossBarOutput", "Lvl %joblevel% %jobname%: %jobxp%/%jobmaxxp% xp%gain%");
 	    c.get("command.stats.bossBarGain", " &7(&f%gain%&7)");
 
@@ -508,7 +509,7 @@ public class LanguageManager {
 	    c.get("command.employ.output.target", "You have been employed as a %jobname%.");
 
 	    c.get("command.top.help.info", "Shows top players by jobs name.");
-	    c.get("command.top.help.args", "[jobname]");
+	    c.get("command.top.help.args", "[jobname]/clear pageNumber");
 	    Jobs.getGCManager().getCommandArgs().put("top", Arrays.asList("[jobname]"));
 	    c.get("command.top.error.nojob", "Can't find any job with this name.");
 	    c.get("command.top.output.topline", "&aTop&e %amount% &aplayers by &e%jobname% &ajob");
@@ -518,7 +519,7 @@ public class LanguageManager {
 	    c.get("command.top.output.show", "&2Show from &e[from] &2until &e[until] &2top list");
 
 	    c.get("command.gtop.help.info", "Shows top players by global jobs level.");
-	    c.get("command.gtop.help.args", "");
+	    c.get("command.gtop.help.args", "clear/pageNumber");
 	    c.get("command.gtop.error.nojob", "Can't find any information.");
 	    c.get("command.gtop.output.topline", "&aTop&e %amount% &aplayers by global job level");
 	    c.get("command.gtop.output.list", "&e%number%&a. &e%playername% &alvl &e%level% &awith&e %exp% &aexp");
@@ -631,6 +632,9 @@ public class LanguageManager {
 
 	    c.get("message.skillup.broadcast", "%playername% has been promoted to a %titlename% %jobname%.");
 	    c.get("message.skillup.nobroadcast", "Congratulations, you have been promoted to a %titlename% %jobname%.");
+	    c.get("message.max-level-reached.title", "&2Max level reached");
+	    c.get("message.max-level-reached.subtitle", "&2in %jobname%!");
+	    c.get("message.max-level-reached.chat", "&cYou have reached the maximum level in %jobname%!");
 
 	    c.get("message.levelup.broadcast", "%playername% is now a level %joblevel% %jobname%.");
 	    c.get("message.levelup.nobroadcast", "You are now level %joblevel% %jobname%.");

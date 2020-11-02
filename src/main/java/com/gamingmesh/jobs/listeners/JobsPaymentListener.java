@@ -222,8 +222,8 @@ public class JobsPaymentListener implements Listener {
 
 	ItemStack itemInHand = Jobs.getNms().getItemInMainHand(player);
 
-	if ((cow.getType() == EntityType.COW && itemInHand.getType() != Material.BUCKET)
-	    || (cow.getType() == EntityType.MUSHROOM_COW && itemInHand.getType() != Material.BOWL)) {
+	if (itemInHand.getType() != Material.BUCKET
+	    && (cow.getType() == EntityType.MUSHROOM_COW && itemInHand.getType() != Material.BOWL)) {
 	    return;
 	}
 
@@ -319,10 +319,11 @@ public class JobsPaymentListener implements Listener {
 	if (!Jobs.getGCManager().canPerformActionInWorld(block.getWorld()))
 	    return;
 
-	if (!block.hasMetadata(brewingOwnerMetadata))
+	BlockOwnerShip ownerShip = Jobs.getInstance().getBlockOwnerShip(CMIMaterial.get(block), false).orElse(null);
+	if (ownerShip == null || !block.hasMetadata(ownerShip.getMetadataName()))
 	    return;
 
-	List<MetadataValue> data = block.getMetadata(brewingOwnerMetadata);
+	List<MetadataValue> data = block.getMetadata(ownerShip.getMetadataName());
 	if (data.isEmpty())
 	    return;
 
@@ -383,8 +384,8 @@ public class JobsPaymentListener implements Listener {
 
 	FastPayment fp = Jobs.FASTPAYMENT.get(player.getUniqueId());
 	if (fp != null) {
-	    if (fp.getTime() > System.currentTimeMillis() && fp.getInfo().getName().equalsIgnoreCase(bInfo.getName()) ||
-		fp.getInfo().getNameWithSub().equalsIgnoreCase(bInfo.getNameWithSub())) {
+	    if (fp.getTime() > System.currentTimeMillis() && (fp.getInfo().getName().equalsIgnoreCase(bInfo.getName()) ||
+		fp.getInfo().getNameWithSub().equalsIgnoreCase(bInfo.getNameWithSub()))) {
 		Jobs.perform(fp.getPlayer(), fp.getInfo(), fp.getPayment(), fp.getJob());
 		return;
 	    }
@@ -878,9 +879,10 @@ public class JobsPaymentListener implements Listener {
 	    return;
 
 	if (Version.isCurrentEqualOrHigher(Version.v1_14_R1) && inv instanceof StonecutterInventory) {
-		if (event.getAction() != InventoryAction.DROP_ONE_SLOT) {
-			Jobs.action(jPlayer, new ItemActionInfo(resultStack, ActionType.CRAFT));
-		}
+	    if (event.getAction() != InventoryAction.DROP_ONE_SLOT) {
+		Jobs.action(jPlayer, new ItemActionInfo(resultStack, ActionType.CRAFT));
+	    }
+
 	    return;
 	}
 

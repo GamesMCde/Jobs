@@ -40,6 +40,7 @@ import com.gamingmesh.jobs.container.blockOwnerShip.BlockTypes;
 import com.gamingmesh.jobs.dao.JobsDAO;
 import com.gamingmesh.jobs.economy.PaymentData;
 import com.gamingmesh.jobs.resources.jfep.Parser;
+import com.gamingmesh.jobs.stuff.Debug;
 import com.gamingmesh.jobs.stuff.TimeManage;
 
 public class JobsPlayer {
@@ -111,7 +112,7 @@ public class JobsPlayer {
     public void setPoints(PlayerPoints points) {
 	getPointsData().setPoints(points.getCurrentPoints());
 	getPointsData().setTotalPoints(points.getTotalPoints());
-	getPointsData().setNewEntry(points.isNewEntry());
+	getPointsData().setDbId(points.getDbId());
     }
 
     public boolean havePoints(double points) {
@@ -165,7 +166,7 @@ public class JobsPlayer {
 	if (data.isReachedLimit(type, value == null ? 0 : value)) {
 	    String name = type.getName().toLowerCase();
 
-	    if (player.isOnline() && !data.isInformed() && !data.isReseted()) {
+	    if (player.isOnline() && !data.isInformed() && !data.isReseted(type)) {
 		if (Jobs.getGCManager().useMaxPaymentCurve) {
 		    player.sendMessage(Jobs.getLanguage().getMessage("command.limit.output.reached" + name + "limit"));
 		    player.sendMessage(Jobs.getLanguage().getMessage("command.limit.output.reached" + name + "limit2"));
@@ -178,8 +179,8 @@ public class JobsPlayer {
 	    }
 	    if (data.isAnnounceTime(limit.getAnnouncementDelay()) && player.isOnline())
 		ActionBarManager.send(player, Jobs.getLanguage().getMessage("command.limit.output." + name + "time", "%time%", TimeManage.to24hourShort(data.getLeftTime(type))));
-	    if (data.isReseted())
-		data.setReseted(false);
+	    if (data.isReseted(type))
+		data.setReseted(type, false);
 	    return false;
 	}
 	data.addAmount(type, amount);
@@ -279,41 +280,30 @@ public class JobsPlayer {
 
 	ArrayList<BoostCounter> counterList = new ArrayList<>();
 	counterList.add(new BoostCounter(type, Boost, time));
-
+ 
 	boostCounter.put(JobName, counterList);
 	return Boost;
     }
 
     private Double getPlayerBoostNew(String JobName, CurrencyType type) {
-	Double v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost." + JobName + "." + type.getName(), true);
+	Double v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost." + JobName + "." + type.getName(), true, false, true);
 	Double Boost = v1;
-
-	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost." + JobName + ".all");
+	
+	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost." + JobName + ".all", false, false, true);
 	if (v1 != 0d && (v1 > Boost || v1 < Boost))
 	    Boost = v1;
 
-	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost.all.all");
+	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost.all.all", false, false, true);
 	if (v1 != 0d && (v1 > Boost || v1 < Boost))
 	    Boost = v1;
 
-	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost.all." + type.getName());
+	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost.all." + type.getName(), false, false, true);
 	if (v1 != 0d && (v1 > Boost || v1 < Boost))
 	    Boost = v1;
 
 	return Boost;
     }
 
-    // New method is in use
-//    private Double getPlayerBoost(String JobName, CurrencyType type) {
-//	double Boost = 0D;
-//	if (Perm.hasPermission(player, "jobs.boost." + JobName + "." + type.getName().toLowerCase()) ||
-//	    Perm.hasPermission(player, "jobs.boost." + JobName + ".all") ||
-//	    Perm.hasPermission(player, "jobs.boost.all.all") ||
-//	    Perm.hasPermission(player, "jobs.boost.all." + type.getName().toLowerCase())) {
-//	    Boost = Jobs.getGCManager().Boost.get(type);
-//	}
-//	return Boost;
-//    }
 
     /**
      * Reloads max experience for this job.
@@ -939,9 +929,7 @@ public class JobsPlayer {
     }
 
     public void getNewQuests(Job job) {
-	HashMap<String, QuestProgression> prog = qProgression.get(job.getName());
-	if (prog != null)
-	    prog.clear();
+	java.util.Optional.ofNullable(qProgression.get(job.getName())).ifPresent(HashMap::clear);
     }
 
     public void replaceQuest(Quest quest) {

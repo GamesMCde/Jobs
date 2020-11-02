@@ -59,7 +59,7 @@ public class GeneralConfigManager {
     private final HashMap<String, List<String>> commandArgs = new HashMap<>();
 
     protected Locale locale;
-    private ConfigReader c = null;
+    private ConfigReader c;
 
     protected boolean economyAsync, isBroadcastingSkillups, isBroadcastingLevelups, payInCreative, payExploringWhenFlying,
 	addXpPlayer, hideJobsWithoutPermission, payNearSpawner, modifyChat, saveOnDisconnect, MultiServerCompatability;
@@ -103,7 +103,7 @@ public class GeneralConfigManager {
 	BossBarEnabled, BossBarShowOnEachAction, BossBarsMessageByDefault, ExploreCompact, DBCleaningJobsUse, DBCleaningUsersUse,
 	DisabledWorldsUse, UseAsWhiteListWorldList, PaymentMethodsMoney, PaymentMethodsPoints, PaymentMethodsExp, MythicMobsEnabled,
 	LoggingUse, payForCombiningItems, BlastFurnacesReassign = false, SmokerReassign = false, payForStackedEntities,
-	payForEachVTradeItem;
+	payForEachVTradeItem, titleMessageMaxLevelReached;
 
     public ItemStack guiBackButton, guiNextButton, guiFiller;
 
@@ -601,7 +601,7 @@ public class GeneralConfigManager {
 	UseTaxes = c.get("Economy.Taxes.use", false);
 	c.addComment("Economy.Taxes.AccountName", "Username should be with Correct capitalization, it can be same as setup in server account before");
 	ServertaxesAccountName = c.get("Economy.Taxes.AccountName", "Server");
-	c.addComment("Economy.Taxes.Amount", "Amount in percentage");
+	c.addComment("Economy.Taxes.Amount", "Amount in percentage. You can grant money and points permissions (jobs.tax.money.amount, jobs.tax.points.amount) for taxes.");
 	TaxesAmount = c.get("Economy.Taxes.Amount", 15.0);
 	c.addComment("Economy.Taxes.TransferToServerAccount", "Do you want to transfer taxes to server account?");
 	TransferToServerAccount = c.get("Economy.Taxes.TransferToServerAccount", true);
@@ -863,6 +863,9 @@ public class GeneralConfigManager {
 	TitleChangeChat = c.get("ShowChatMessage.OnTitleChange", true);
 	LevelChangeChat = c.get("ShowChatMessage.OnLevelChange", true);
 	EmptyServerAccountChat = c.get("ShowChatMessage.OnEmptyServerAccount", true);
+
+	c.addComment("SendTitleMessageWhenMaxLevelReached", "Send title and chat message when a player reached the maximum level in a job.");
+	titleMessageMaxLevelReached = c.get("SendTitleMessageWhenMaxLevelReached", false);
 
 	c.addComment("Sounds", "Sounds", "Extra sounds on some events",
 	    "All sounds can be found in https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html");
