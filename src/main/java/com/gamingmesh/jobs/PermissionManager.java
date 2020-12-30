@@ -29,7 +29,6 @@ import org.bukkit.permissions.PermissionAttachmentInfo;
 
 import com.gamingmesh.jobs.container.Job;
 import com.gamingmesh.jobs.container.JobsPlayer;
-import com.gamingmesh.jobs.stuff.Debug;
 
 public class PermissionManager {
 
@@ -37,34 +36,34 @@ public class PermissionManager {
 
     private enum prm {
 //	jobs_join_JOBNAME(remade("jobs.join.%JOBNAME%"), 60 * 1000),
-	jobs_use(remade("jobs.use"), 2 * 1000),
+	jobs_use(remade("jobs.use"), 2),
 //	jobs_boost_JOBNAME_money(remade("jobs.boost.%JOBNAME%.money"), 60 * 1000),
 //	jobs_boost_JOBNAME_exp(remade("jobs.boost.%JOBNAME%.exp"), 60 * 1000),
 //	jobs_boost_JOBNAME_points(remade("jobs.boost.%JOBNAME%.points"), 60 * 1000),
 //	jobs_boost_JOBNAME_all(remade("jobs.boost.%JOBNAME%.all"), 60 * 1000),
 //	jobs_leave_JOBNAME(remade("jobs.leave.%JOBNAME%"), 60 * 1000),
-	jobs_boost_JOBNAME_money_AMOUNT(remade("jobs.boost.%JOBNAME%.money.%AMOUNT%"), 60 * 1000),
-	jobs_boost_JOBNAME_exp_AMOUNT(remade("jobs.boost.%JOBNAME%.exp.%AMOUNT%"), 60 * 1000),
-	jobs_boost_JOBNAME_points_AMOUNT(remade("jobs.boost.%JOBNAME%.points.%AMOUNT%"), 60 * 1000),
-	jobs_boost_JOBNAME_all_AMOUNT(remade("jobs.boost.%JOBNAME%.all.%AMOUNT%"), 60 * 1000),
-	jobs_boost_all_money_AMOUNT(remade("jobs.boost.all.money.%AMOUNT%"), 60 * 1000),
-	jobs_boost_all_exp_AMOUNT(remade("jobs.boost.all.exp.%AMOUNT%"), 60 * 1000),
-	jobs_boost_all_points_AMOUNT(remade("jobs.boost.all.points.%AMOUNT%"), 60 * 1000),
-	jobs_boost_all_all_AMOUNT(remade("jobs.boost.all.all.%AMOUNT%"), 60 * 1000),
-	jobs_spawner_AMOUNT(remade("jobs.nearspawner.%AMOUNT%"), 60 * 1000),
-	jobs_petpay_AMOUNT(remade("jobs.petpay.%AMOUNT%"), 60 * 1000),
-	jobs_maxfurnaces_AMOUNT(remade("jobs.maxfurnaces.%AMOUNT%"), 2 * 1000),
-	jobs_maxblastfurnaces_AMOUNT(remade("jobs.maxblastfurnaces.%AMOUNT%"), 2 * 1000),
-	jobs_maxsmokers_AMOUNT(remade("jobs.maxsmokers.%AMOUNT%"), 2 * 1000),
-	jobs_maxbrewingstands_AMOUNT(remade("jobs.maxbrewingstands.%AMOUNT%"), 2 * 1000),
-	jobs_world_WORLDNAME(remade("jobs.world.%WORLDNAME%"), 2 * 1000);
+	jobs_boost_JOBNAME_money_AMOUNT(remade("jobs.boost.%JOBNAME%.money.%AMOUNT%"), 60),
+	jobs_boost_JOBNAME_exp_AMOUNT(remade("jobs.boost.%JOBNAME%.exp.%AMOUNT%"), 60),
+	jobs_boost_JOBNAME_points_AMOUNT(remade("jobs.boost.%JOBNAME%.points.%AMOUNT%"), 60),
+	jobs_boost_JOBNAME_all_AMOUNT(remade("jobs.boost.%JOBNAME%.all.%AMOUNT%"), 60),
+	jobs_boost_all_money_AMOUNT(remade("jobs.boost.all.money.%AMOUNT%"), 60),
+	jobs_boost_all_exp_AMOUNT(remade("jobs.boost.all.exp.%AMOUNT%"), 60),
+	jobs_boost_all_points_AMOUNT(remade("jobs.boost.all.points.%AMOUNT%"), 60),
+	jobs_boost_all_all_AMOUNT(remade("jobs.boost.all.all.%AMOUNT%"), 60),
+	jobs_spawner_AMOUNT(remade("jobs.nearspawner.%AMOUNT%"), 60),
+	jobs_petpay_AMOUNT(remade("jobs.petpay.%AMOUNT%"), 60),
+	jobs_maxfurnaces_AMOUNT(remade("jobs.maxfurnaces.%AMOUNT%"), 2),
+	jobs_maxblastfurnaces_AMOUNT(remade("jobs.maxblastfurnaces.%AMOUNT%"), 2),
+	jobs_maxsmokers_AMOUNT(remade("jobs.maxsmokers.%AMOUNT%"), 2),
+	jobs_maxbrewingstands_AMOUNT(remade("jobs.maxbrewingstands.%AMOUNT%"), 2),
+	jobs_world_WORLDNAME(remade("jobs.world.%WORLDNAME%"), 2);
 
 	private int reload;
 	private List<String> perms;
 
 	private prm(List<String> perms, int reload) {
 	    this.perms = perms;
-	    this.reload = reload;
+	    this.reload = reload * 1000;
 	}
 
 	public int getDelay() {
@@ -118,14 +117,14 @@ public class PermissionManager {
     }
 
     public Double getMaxPermission(JobsPlayer jPlayer, String perm) {
-	return getMaxPermission(jPlayer, perm, false, false, false);
+	return getMaxPermission(jPlayer, perm, false, false);
     }
 
     public Double getMaxPermission(JobsPlayer jPlayer, String perm, boolean force) {
-	return getMaxPermission(jPlayer, perm, force, false, false);
+	return getMaxPermission(jPlayer, perm, force, false);
     }
 
-    public Double getMaxPermission(JobsPlayer jPlayer, String perm, boolean force, boolean cumulative, boolean allowMinus) {
+    public Double getMaxPermission(JobsPlayer jPlayer, String perm, boolean force, boolean cumulative) {
 	if (jPlayer == null || jPlayer.getPlayer() == null)
 	    return 0D;
 
@@ -140,28 +139,24 @@ public class PermissionManager {
 	    jPlayer.setLastPermissionUpdate(System.currentTimeMillis());
 	}
 
-	if (permissions == null) {
-	    return 0D;
-	}
-
-	double amount = 0D;
+	double amount = Double.NEGATIVE_INFINITY;
 
 	for (Map.Entry<String, Boolean> permission : permissions.entrySet()) {
 	    if (!permission.getKey().startsWith(perm) || !permission.getValue())
 		continue;
-
 	    try {
 		double temp = Double.parseDouble(permission.getKey().replace(perm, ""));
 		if (cumulative)
 		    amount += temp;
-		else if (allowMinus || temp > amount)
+		else if (temp > amount)
 		    amount = temp;
 	    } catch (NumberFormatException ignored) {
 		ignored.printStackTrace();
+		// Should be ignored
 	    }
 	}
 
-	return amount;
+	return amount == Double.NEGATIVE_INFINITY ? 0D : amount;
     }
 
     public boolean hasPermission(JobsPlayer jPlayer, String perm) {

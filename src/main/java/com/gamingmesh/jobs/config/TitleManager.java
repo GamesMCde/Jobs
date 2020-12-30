@@ -40,18 +40,10 @@ public class TitleManager {
      * 
      * loads from Jobs/titleConfig.yml
      */
-    synchronized void load() {
+    void load() {
 	titles.clear();
 
-	ConfigReader c = null;
-	try {
-	    c = new ConfigReader("titleConfig.yml");
-	} catch (Exception e) {
-	    e.printStackTrace();
-	}
-	if (c == null)
-	    return;
-
+	ConfigReader c = new ConfigReader("titleConfig.yml");
 	c.copyDefaults(true);
 
 	c.header(Arrays.asList(

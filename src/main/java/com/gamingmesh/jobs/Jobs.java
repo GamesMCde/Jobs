@@ -60,9 +60,9 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
 public class Jobs extends JavaPlugin {
@@ -173,7 +173,7 @@ public class Jobs extends JavaPlugin {
 	    return false;
 
 	if (Integer.parseInt(getServer().getPluginManager().getPlugin("PlaceholderAPI")
-		.getDescription().getVersion().replaceAll("[^\\d]", "")) >= 2100 && new PlaceholderAPIHook(this).register()) {
+	    .getDescription().getVersion().replaceAll("[^\\d]", "")) >= 2100 && new PlaceholderAPIHook(this).register()) {
 	    consoleMsg("&e[Jobs] PlaceholderAPI hooked.");
 	}
 
@@ -452,44 +452,45 @@ public class Jobs extends JavaPlugin {
 	return jobsIds;
     }
 
-    /**
-     * Executes startup
-     * @throws IOException 
-     */
-    public void startup() {
+    private void startup() {
 	reload(true);
-	loadAllPlayersData();
 
-	// add all online players
-	Bukkit.getServer().getOnlinePlayers().forEach(getPlayerManager()::playerJoin);
+	CompletableFuture<Void> pd = loadAllPlayersData();
+
+	// attempt to add all online players to cache
+	pd.thenAccept(e -> Bukkit.getServer().getOnlinePlayers().forEach(getPlayerManager()::playerJoin));
     }
 
-    public static void loadAllPlayersData() {
-	long time = System.currentTimeMillis();
-	// Cloning to avoid issues
-	HashMap<UUID, PlayerInfo> temp = new HashMap<>(getPlayerManager().getPlayersInfoUUIDMap());
-	HashMap<Integer, List<JobsDAOData>> playersJobs = dao.getAllJobs();
-	HashMap<Integer, PlayerPoints> playersPoints = dao.getAllPoints();
-	HashMap<Integer, HashMap<String, Log>> playersLogs = dao.getAllLogs();
-	HashMap<Integer, ArchivedJobs> playersArchives = dao.getAllArchivedJobs();
-	HashMap<Integer, PaymentData> playersLimits = dao.loadPlayerLimits();
-	for (Iterator<PlayerInfo> it = temp.values().iterator(); it.hasNext();) {
-	    PlayerInfo one = it.next();
-	    int id = one.getID();
-	    JobsPlayer jPlayer = getPlayerManager().getJobsPlayerOffline(
-		one,
-		playersJobs.get(id),
-		playersPoints.get(id),
-		playersLogs.get(id),
-		playersArchives.get(id),
-		playersLimits.get(id));
-	    if (jPlayer != null)
-		getPlayerManager().addPlayerToCache(jPlayer);
-	}
+    public static CompletableFuture<Void> loadAllPlayersData() {
+	return CompletableFuture.supplyAsync(() -> {
+	    long time = System.currentTimeMillis();
+	    // Cloning to avoid issues
+	    HashMap<UUID, PlayerInfo> temp = new HashMap<>(getPlayerManager().getPlayersInfoUUIDMap());
+	    HashMap<Integer, List<JobsDAOData>> playersJobs = dao.getAllJobs();
+	    HashMap<Integer, PlayerPoints> playersPoints = dao.getAllPoints();
+	    HashMap<Integer, HashMap<String, Log>> playersLogs = dao.getAllLogs();
+	    HashMap<Integer, ArchivedJobs> playersArchives = dao.getAllArchivedJobs();
+	    HashMap<Integer, PaymentData> playersLimits = dao.loadPlayerLimits();
+	    for (Iterator<PlayerInfo> it = temp.values().iterator(); it.hasNext();) {
+		PlayerInfo one = it.next();
+		int id = one.getID();
+		JobsPlayer jPlayer = getPlayerManager().getJobsPlayerOffline(
+		    one,
+		    playersJobs.get(id),
+		    playersPoints.get(id),
+		    playersLogs.get(id),
+		    playersArchives.get(id),
+		    playersLimits.get(id));
+		if (jPlayer != null)
+		    getPlayerManager().addPlayerToCache(jPlayer);
+	    }
 
-	if (!getPlayerManager().getPlayersCache().isEmpty())
-	    consoleMsg("&e[Jobs] Preloaded " + getPlayerManager().getPlayersCache().size() + " players data in " +
-		((int) (((System.currentTimeMillis() - time) / 1000d) * 100) / 100D));
+	    return time;
+	}).thenAccept(t -> {
+	    if (!getPlayerManager().getPlayersCache().isEmpty())
+		consoleMsg("&e[Jobs] Preloaded " + getPlayerManager().getPlayersCache().size() + " players data in " +
+		    ((int) (((System.currentTimeMillis() - t) / 1000d) * 100) / 100D));
+	});
     }
 
     /**
@@ -552,19 +553,25 @@ public class Jobs extends JavaPlugin {
 
 	boolean found = false;
 
-	t: for (JobProgression prog : jPlayer.getJobProgression()) {
+	for (JobProgression prog : jPlayer.getJobProgression()) {
 	    for (JobInfo info : jPlayer.getJobProgression(prog.getJob()).getJob().getJobInfo(type)) {
 		if (info.getActionType() == type) {
 		    found = true;
-		    break t;
+		    break;
 		}
 	    }
 
-	    for (Quest q : prog.getJob().getQuests()) {
-		if (q != null && q.hasAction(type)) {
-		    found = true;
-		    break t;
+	    if (!found) {
+		for (Quest q : prog.getJob().getQuests()) {
+		    if (q != null && q.hasAction(type)) {
+			found = true;
+			break;
+		    }
 		}
+	    }
+
+	    if (found) {
+		break;
 	    }
 	}
 
@@ -664,13 +671,10 @@ public class Jobs extends JavaPlugin {
 	placeholderAPIEnabled = setupPlaceHolderAPI();
 
 	try {
-	    YmlMaker jobConfig = new YmlMaker(this, "jobConfig.yml");
-	    jobConfig.saveDefaultConfig();
-
-	    YmlMaker jobShopItems = new YmlMaker(this, "shopItems.yml");
+	    YmlMaker jobShopItems = new YmlMaker(getFolder(), "shopItems.yml");
 	    jobShopItems.saveDefaultConfig();
 
-	    YmlMaker restrictedBlocks = new YmlMaker(this, "restrictedBlocks.yml");
+	    YmlMaker restrictedBlocks = new YmlMaker(getFolder(), "restrictedBlocks.yml");
 	    restrictedBlocks.saveDefaultConfig();
 
 	    bbManager = new BossBarManager(this);
@@ -683,7 +687,7 @@ public class Jobs extends JavaPlugin {
 	    startup();
 
 	    if (getGCManager().SignsEnabled) {
-		YmlMaker jobSigns = new YmlMaker(this, "Signs.yml");
+		YmlMaker jobSigns = new YmlMaker(getFolder(), "Signs.yml");
 		jobSigns.saveDefaultConfig();
 	    }
 
@@ -757,10 +761,8 @@ public class Jobs extends JavaPlugin {
 	    paymentThread.shutdown();
 	    paymentThread = null;
 	}
+
 	smanager = new SelectionManager();
-	if (dao != null) {
-	    dao.closeConnections();
-	}
 
 	getGCManager().reload();
 	getLanguage().reload();
@@ -887,8 +889,8 @@ public class Jobs extends JavaPlugin {
 	    if (jobinfo == null)
 		return;
 
-	    Double income = jobinfo.getIncome(1, numjobs);
-	    Double pointAmount = jobinfo.getPoints(1, numjobs);
+	    Double income = jobinfo.getIncome(1, numjobs, jPlayer.maxJobsEquation);
+	    Double pointAmount = jobinfo.getPoints(1, numjobs, jPlayer.maxJobsEquation);
 
 	    if (income == 0D && pointAmount == 0D)
 		return;
@@ -992,9 +994,9 @@ public class Jobs extends JavaPlugin {
 		    continue;
 		}
 
-		Double income = jobinfo.getIncome(level, numjobs);
-		Double pointAmount = jobinfo.getPoints(level, numjobs);
-		Double expAmount = jobinfo.getExperience(level, numjobs);
+		Double income = jobinfo.getIncome(level, numjobs, jPlayer.maxJobsEquation);
+		Double pointAmount = jobinfo.getPoints(level, numjobs, jPlayer.maxJobsEquation);
+		Double expAmount = jobinfo.getExperience(level, numjobs, jPlayer.maxJobsEquation);
 
 		if (income == 0D && pointAmount == 0D && expAmount == 0D)
 		    continue;
@@ -1099,7 +1101,7 @@ public class Jobs extends JavaPlugin {
 
 		// JobsPayment event
 		JobsExpGainEvent jobsExpGainEvent = new JobsExpGainEvent(jPlayer.getPlayer(), prog.getJob(), expAmount,
-			block, ent, victim, info);
+		    block, ent, victim, info);
 		Bukkit.getServer().getPluginManager().callEvent(jobsExpGainEvent);
 		// If event is canceled, don't do anything
 		expAmount = jobsExpGainEvent.isCancelled() ? 0D : jobsExpGainEvent.getExp();
@@ -1172,7 +1174,7 @@ public class Jobs extends JavaPlugin {
 		    return false;
 		}
 
-		if ((time < System.currentTimeMillis()) && (bp.getAction() != DBAction.DELETE)) {
+		if (time < System.currentTimeMillis() && bp.getAction() != DBAction.DELETE) {
 		    getBpManager().remove(block);
 		    return true;
 		}
@@ -1200,7 +1202,6 @@ public class Jobs extends JavaPlugin {
 	    if (bp != null) {
 		Long time = bp.getTime();
 		Integer cd = getBpManager().getBlockDelayTime(block);
-
 		if (time != -1L) {
 		    if (time < System.currentTimeMillis() && bp.getAction() != DBAction.DELETE) {
 			getBpManager().add(block, cd);
@@ -1216,6 +1217,10 @@ public class Jobs extends JavaPlugin {
 			getBpManager().add(block, cd);
 			return false;
 		    }
+
+		    // Lets add protection in any case
+		    getBpManager().add(block, cd);
+
 		} else if (bp.isPaid().booleanValue() && bp.getTime() == -1L && cd != null && cd == -1) {
 		    getBpManager().add(block, cd);
 		    return false;
@@ -1229,11 +1234,11 @@ public class Jobs extends JavaPlugin {
     }
 
     private static int getPlayerExperience(Player player) {
-	return (ExpToLevel(player.getLevel()) + Math.round(deltaLevelToExp(player.getLevel()) * player.getExp()));
+	return (expToLevel(player.getLevel()) + Math.round(deltaLevelToExp(player.getLevel()) * player.getExp()));
     }
 
     // total xp calculation based by lvl
-    private static int ExpToLevel(int level) {
+    private static int expToLevel(int level) {
 	if (Version.isCurrentEqualOrLower(Version.v1_7_R4)) {
 	    if (level <= 16)
 		return 17 * level;
@@ -1286,11 +1291,10 @@ public class Jobs extends JavaPlugin {
 
 	if (limited)
 	    return;
-	
+
 	economy.pay(jPlayer, payment.getPayment());
 
 	JobProgression prog = jPlayer.getJobProgression(job);
-
 	int oldLevel = prog.getLevel();
 
 	if (gConfigManager.LoggingUse) {
@@ -1324,15 +1328,15 @@ public class Jobs extends JavaPlugin {
 
     }
 
-    public void ShowPagination(CommandSender sender, PageInfo pi, String cmd) {
-	ShowPagination(sender, pi.getTotalPages(), pi.getCurrentPage(), pi.getTotalEntries(), cmd, null);
+    public void showPagination(CommandSender sender, PageInfo pi, String cmd) {
+	showPagination(sender, pi.getTotalPages(), pi.getCurrentPage(), pi.getTotalEntries(), cmd, null);
     }
 
-    public void ShowPagination(CommandSender sender, PageInfo pi, String cmd, String pagePref) {
-	ShowPagination(sender, pi.getTotalPages(), pi.getCurrentPage(), pi.getTotalEntries(), cmd, pagePref);
+    public void showPagination(CommandSender sender, PageInfo pi, String cmd, String pagePref) {
+	showPagination(sender, pi.getTotalPages(), pi.getCurrentPage(), pi.getTotalEntries(), cmd, pagePref);
     }
 
-    public void ShowPagination(CommandSender sender, int pageCount, int CurrentPage, int totalEntries, String cmd, String pagePref) {
+    public void showPagination(CommandSender sender, int pageCount, int currentPage, int totalEntries, String cmd, String pagePref) {
 	if (!(sender instanceof Player))
 	    return;
 
@@ -1344,23 +1348,23 @@ public class Jobs extends JavaPlugin {
 
 	String pagePrefix = pagePref == null ? "" : pagePref;
 
-	int NextPage = CurrentPage + 1;
-	NextPage = CurrentPage < pageCount ? NextPage : CurrentPage;
+	int nextPage = currentPage + 1;
+	nextPage = currentPage < pageCount ? nextPage : currentPage;
 
-	int Prevpage = CurrentPage - 1;
-	Prevpage = CurrentPage > 1 ? Prevpage : CurrentPage;
+	int prevpage = currentPage - 1;
+	prevpage = currentPage > 1 ? prevpage : currentPage;
 
 	RawMessage rm = new RawMessage()
-		.addText((CurrentPage > 1 ? lManager.getMessage("command.help.output.prevPage") : lManager.getMessage("command.help.output.prevPageOff")))
-		.addHover(CurrentPage > 1 ? "<<<" : ">|")
-		.addCommand(CurrentPage > 1 ? cmd + " " + pagePrefix + Prevpage : cmd + " " + pagePrefix + pageCount);
+	    .addText((currentPage > 1 ? lManager.getMessage("command.help.output.prevPage") : lManager.getMessage("command.help.output.prevPageOff")))
+	    .addHover(currentPage > 1 ? "<<<" : ">|")
+	    .addCommand(currentPage > 1 ? cmd + " " + pagePrefix + prevpage : cmd + " " + pagePrefix + pageCount);
 
-	rm.addText(lManager.getMessage("command.help.output.pageCount", "[current]", CurrentPage, "[total]", pageCount))
-	.addHover(lManager.getMessage("command.help.output.pageCountHover", "[totalEntries]", totalEntries));
+	rm.addText(lManager.getMessage("command.help.output.pageCount", "[current]", currentPage, "[total]", pageCount))
+	    .addHover(lManager.getMessage("command.help.output.pageCountHover", "[totalEntries]", totalEntries));
 
-	rm.addText(pageCount > CurrentPage ? lManager.getMessage("command.help.output.nextPage") : lManager.getMessage("command.help.output.nextPageOff"))
-	.addHover(pageCount > CurrentPage ? ">>>" : "|<")
-	.addCommand(pageCount > CurrentPage ? cmd + " " + pagePrefix + NextPage : cmd + " " + pagePrefix + 1);
+	rm.addText(pageCount > currentPage ? lManager.getMessage("command.help.output.nextPage") : lManager.getMessage("command.help.output.nextPageOff"))
+	    .addHover(pageCount > currentPage ? ">>>" : "|<")
+	    .addCommand(pageCount > currentPage ? cmd + " " + pagePrefix + nextPage : cmd + " " + pagePrefix + 1);
 
 	if (pageCount != 0)
 	    rm.show(sender);

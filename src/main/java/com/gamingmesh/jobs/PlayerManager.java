@@ -188,6 +188,15 @@ public class PlayerManager {
 	    else
 		jPlayer = Jobs.getJobsDAO().loadFromDao(player);
 
+	    if (Jobs.getGCManager().MultiServerCompatability()) {
+		ArchivedJobs archivedJobs = Jobs.getJobsDAO().getArchivedJobs(jPlayer);
+		if (archivedJobs != null) {
+		    jPlayer.setArchivedJobs(archivedJobs);
+		}
+
+		jPlayer.setPaymentLimit(Jobs.getJobsDAO().getPlayersLimits(jPlayer));
+		jPlayer.setPoints(Jobs.getJobsDAO().getPlayerPoints(jPlayer));
+	    }
 	    // Lets load quest progression
 	    PlayerInfo info = Jobs.getJobsDAO().loadPlayerData(player.getUniqueId());
 	    if (info != null) {
@@ -258,9 +267,7 @@ public class PlayerManager {
      * Save all the information of all of the players
      */
     public void convertChacheOfPlayers(boolean resetID) {
-	int y = 0;
-	int i = 0;
-	int total = playersUUIDCache.size();
+	int y = 0, i = 0, total = playersUUIDCache.size();
 
 	for (JobsPlayer jPlayer : playersUUIDCache.values()) {
 	    if (resetID)
@@ -386,15 +393,16 @@ public class PlayerManager {
 	if (jobsjoinevent.isCancelled())
 	    return;
 
-	Jobs.getJobsDAO().joinJob(jPlayer, jPlayer.getJobProgression(job));
+	Bukkit.getScheduler().runTaskAsynchronously(Jobs.getInstance(), () -> Jobs.getJobsDAO().joinJob(jPlayer, jPlayer.getJobProgression(job)));
 	jPlayer.setLeftTime(job);
 
-	PerformCommands.PerformCommandsOnJoin(jPlayer, job);
+	PerformCommands.performCommandsOnJoin(jPlayer, job);
 
 	Jobs.takeSlot(job);
 	Jobs.getSignUtil().updateAllSign(job);
 
 	job.updateTotalPlayers();
+	jPlayer.maxJobsEquation = getMaxJobs(jPlayer);
     }
 
     /**
@@ -419,7 +427,7 @@ public class PlayerManager {
 
 	if (!Jobs.getJobsDAO().quitJob(jPlayer, job))
 	    return false;
-	PerformCommands.PerformCommandsOnLeave(jPlayer, job);
+	PerformCommands.performCommandsOnLeave(jPlayer, job);
 	Jobs.leaveSlot(job);
 
 	jPlayer.getLeftTimes().remove(jPlayer.getUniqueId());
@@ -591,7 +599,7 @@ public class PlayerManager {
 	}
 
 	if (Jobs.getGCManager().FireworkLevelupUse) {
-	    Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(Jobs.getInstance(), new Runnable() {
+	    Bukkit.getServer().getScheduler().runTaskLater(Jobs.getInstance(), new Runnable() {
 		@Override
 		public void run() {
 		    if (player == null || !player.isOnline())
@@ -689,7 +697,8 @@ public class PlayerManager {
 	message = message.replace("%jobname%", job.getNameWithColor());
 
 	if (levelUpEvent.getOldTitle() != null)
-	    message = message.replace("%titlename%", levelUpEvent.getOldTitleColor() + levelUpEvent.getOldTitleName());
+	    message = message.replace("%titlename%", levelUpEvent.getOldTitle()
+		.getChatColor().toString() + levelUpEvent.getOldTitle().getName());
 
 	message = message.replace("%playername%", player != null ? player.getDisplayName() : jPlayer.getName());
 	message = message.replace("%joblevel%", "" + prog.getLevel());
@@ -714,7 +723,7 @@ public class PlayerManager {
 		    Sound sound = levelUpEvent.getTitleChangeSound();
 		    if (player != null)
 			player.getWorld().playSound(player.getLocation(), sound, levelUpEvent.getTitleChangeVolume(),
-			levelUpEvent.getTitleChangePitch());
+			    levelUpEvent.getTitleChangePitch());
 		}
 	    } catch (Exception e) {
 	    }
@@ -725,7 +734,8 @@ public class PlayerManager {
 		message = Jobs.getLanguage().getMessage("message.skillup.nobroadcast");
 
 	    message = message.replace("%playername%", player != null ? player.getDisplayName() : jPlayer.getName());
-	    message = message.replace("%titlename%", levelUpEvent.getNewTitleColor() + levelUpEvent.getNewTitleName());
+	    message = message.replace("%titlename%", levelUpEvent.getNewTitle()
+		.getChatColor().toString() + levelUpEvent.getNewTitle().getName());
 	    message = message.replace("%jobname%", job.getNameWithColor());
 
 	    for (String line : message.split("\n")) {
@@ -781,14 +791,27 @@ public class PlayerManager {
     }
 
     /**
-     * Get max jobs
-     * @param player
-     * @return True if he have permission
+     * Checks whenever the given jobs player is under the max allowed jobs.
+     * @param player {@link JobsPlayer}
+     * @param currentCount the current jobs size
+     * @return true if the player is under the given jobs size
      */
     public boolean getJobsLimit(JobsPlayer jPlayer, short currentCount) {
+	return getMaxJobs(jPlayer) > currentCount;
+    }
+
+    /**
+     * Gets the maximum jobs from player.
+     * @param jPlayer {@link JobsPlayer}
+     * @return the maximum allowed jobs
+     */
+    public int getMaxJobs(JobsPlayer jPlayer) {
+	if (jPlayer == null) {
+	    return Jobs.getGCManager().getMaxJobs();
+	}
+
 	int max = Jobs.getPermissionManager().getMaxPermission(jPlayer, "jobs.max", false).intValue();
-	max = max == 0 ? Jobs.getGCManager().getMaxJobs() : max;
-	return max > currentCount;
+	return max == 0 ? Jobs.getGCManager().getMaxJobs() : max;
     }
 
     public BoostMultiplier getBoost(JobsPlayer player, Job job) {
@@ -861,7 +884,7 @@ public class PlayerManager {
 	ItemStack iih = Jobs.getNms().getItemInMainHand(player);
 	JobItems jitem = getJobsItemByNbt(iih);
 	if (jitem != null && jitem.getJobs().contains(prog))
-	    data.add(jitem.getBoost(this.getJobsPlayer(player).getJobProgression(prog)));
+	    data.add(jitem.getBoost(getJobsPlayer(player).getJobProgression(prog)));
 
 	// Lets check offhand
 	if (Version.isCurrentEqualOrHigher(Version.v1_9_R1) && Jobs.getGCManager().boostedItemsInOffHand) {
@@ -869,19 +892,19 @@ public class PlayerManager {
 	    if (iih != null) {
 		jitem = getJobsItemByNbt(iih);
 		if (jitem != null && jitem.getJobs().contains(prog))
-		    data.add(jitem.getBoost(this.getJobsPlayer(player).getJobProgression(prog)));
+		    data.add(jitem.getBoost(getJobsPlayer(player).getJobProgression(prog)));
 	    }
 	}
 
-	for (ItemStack OneArmor : player.getInventory().getArmorContents()) {
-	    if (OneArmor == null || OneArmor.getType() == org.bukkit.Material.AIR)
+	for (ItemStack oneArmor : player.getInventory().getArmorContents()) {
+	    if (oneArmor == null || oneArmor.getType() == org.bukkit.Material.AIR)
 		continue;
-	    JobItems armorboost = getJobsItemByNbt(OneArmor);
 
+	    JobItems armorboost = getJobsItemByNbt(oneArmor);
 	    if (armorboost == null || !armorboost.getJobs().contains(prog))
 		continue;
 
-	    data.add(armorboost.getBoost(this.getJobsPlayer(player).getJobProgression(prog)));
+	    data.add(armorboost.getBoost(getJobsPlayer(player).getJobProgression(prog)));
 	}
 
 	return data;
@@ -917,11 +940,8 @@ public class PlayerManager {
 	    if (itemName == null)
 		return null;
 	}
-	JobItems b = ItemBoostManager.getItemByKey(itemName.toString());
-	if (b == null)
-	    return null;
 
-	return b;
+	return ItemBoostManager.getItemByKey(itemName.toString());
     }
 
 //    public BoostMultiplier getJobsBoostByNbt(ItemStack item) {
@@ -960,34 +980,34 @@ public class PlayerManager {
 	if (HookManager.getMcMMOManager().mcMMOPresent || HookManager.getMcMMOManager().mcMMOOverHaul)
 	    boost.add(BoostOf.McMMO, new BoostMultiplier().add(HookManager.getMcMMOManager().getMultiplier(player.getPlayer())));
 
-	Double petPay = null;
+	double petPay = 0D;
 
 	if (ent instanceof Tameable) {
 	    Tameable t = (Tameable) ent;
 	    if (t.isTamed() && t.getOwner() instanceof Player) {
-		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", false, false, true);
-		if (petPay != null)
+		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", false, false);
+		if (petPay != 0D)
 		    boost.add(BoostOf.PetPay, new BoostMultiplier().add(petPay));
 	    }
 	}
 
 	if (ent != null && HookManager.getMyPetManager() != null && HookManager.getMyPetManager().isMyPet(ent, player.getPlayer())) {
-	    if (petPay == null)
-		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", false, false, true);
-	    if (petPay != null)
+	    if (petPay == 0D)
+		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", false, false);
+	    if (petPay != 0D)
 		boost.add(BoostOf.PetPay, new BoostMultiplier().add(petPay));
 	}
 
 	if (victim != null && victim.hasMetadata(getMobSpawnerMetadata())) {
-	    Double amount = Jobs.getPermissionManager().getMaxPermission(player, "jobs.nearspawner");
-	    if (amount != null)
+	    Double amount = Jobs.getPermissionManager().getMaxPermission(player, "jobs.nearspawner", false, false);
+	    if (amount != 0D)
 		boost.add(BoostOf.NearSpawner, new BoostMultiplier().add(amount));
 	}
 
 	if (getall) {
-	    if (petPay == null)
-		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", force, false, true);
-	    if (petPay != null)
+	    if (petPay == 0D)
+		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", force, false);
+	    if (petPay != 0D)
 		boost.add(BoostOf.PetPay, new BoostMultiplier().add(petPay));
 	    Double amount = Jobs.getPermissionManager().getMaxPermission(player, "jobs.nearspawner", force);
 	    if (amount != null)
@@ -1011,7 +1031,7 @@ public class PlayerManager {
 	if (player == null || player.isOp() || !Jobs.getGCManager().AutoJobJoinUse)
 	    return;
 
-	Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(Jobs.getInstance(), new Runnable() {
+	Bukkit.getServer().getScheduler().runTaskLater(Jobs.getInstance(), new Runnable() {
 	    @Override
 	    public void run() {
 		if (!player.isOnline())

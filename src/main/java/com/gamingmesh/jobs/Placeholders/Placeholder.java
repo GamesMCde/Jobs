@@ -19,6 +19,8 @@ import com.gamingmesh.jobs.container.CurrencyType;
 import com.gamingmesh.jobs.container.Job;
 import com.gamingmesh.jobs.container.JobProgression;
 import com.gamingmesh.jobs.container.JobsPlayer;
+import com.gamingmesh.jobs.container.Quest;
+import com.gamingmesh.jobs.container.QuestProgression;
 import com.gamingmesh.jobs.container.Title;
 import com.gamingmesh.jobs.container.TopList;
 import com.gamingmesh.jobs.container.blockOwnerShip.BlockTypes;
@@ -46,6 +48,7 @@ public class Placeholder {
 	user_dailyquests_pending,
 	user_dailyquests_completed,
 	user_dailyquests_total,
+	user_quests,
 	user_seen,
 	user_totallevels,
 	user_issaved,
@@ -69,6 +72,8 @@ public class Placeholder {
 	user_jmaxlvl_$1("jname/number"),
 	user_job_$1("jname/number"),
 	user_title_$1("jname/number"),
+	user_archived_jobs_level("jname/number"),
+	user_archived_jobs_exp("jname/number"),
 
 	maxjobs,
 
@@ -95,55 +100,53 @@ public class Placeholder {
 	private boolean hidden = false;
 
 	JobsPlaceHolders(String... vars) {
-	    Matcher matcher = numericalRule.getMatcher(this.toString());
+	    Matcher matcher = numericalRule.getMatcher(toString());
 	    if (matcher != null) {
 		rule = new ChatFilterRule();
+
 		List<String> ls = new ArrayList<>();
-		ls.add("(%" + pref + "_)" + this.toString().replaceAll("\\$\\d", "([^\"^%]*)") + "(%)");
+		ls.add("(%" + pref + "_)" + toString().replaceAll("\\$\\d", "([^\"^%]*)") + "(%)");
+
 //		For MVdWPlaceholderAPI
-//		ls.add("(\\{" + pref + this.toString().replaceAll("\\$\\d", "([^\"^%]*)" + "(\\})"));
+//		ls.add("(\\{" + pref + toString().replaceAll("\\$\\d", "([^\"^%]*)" + "(\\})"));
+
 		rule.setPattern(ls);
+
 		while (matcher.find()) {
-		    try {
-			int id = Integer.parseInt(matcher.group(1).substring(1));
-			groups.add(id);
-		    } catch (Exception e) {
-			e.printStackTrace();
-		    }
+		    groups.add(Integer.parseInt(matcher.group(1).substring(1)));
 		}
 	    }
+
 	    this.vars = vars;
 	    this.hidden = false;
 	}
 
 	public static JobsPlaceHolders getByName(String name) {
 	    String original = name;
+
 	    for (JobsPlaceHolders one : JobsPlaceHolders.values()) {
-		if (one.isComplex())
-		    continue;
-		if (one.toString().equalsIgnoreCase(name))
+		if (!one.isComplex() && one.toString().equalsIgnoreCase(name))
 		    return one;
 	    }
+
 	    for (JobsPlaceHolders one : JobsPlaceHolders.values()) {
-		if (one.isComplex())
-		    continue;
-		if (one.getName().equalsIgnoreCase(name))
+		if (!one.isComplex() && one.getName().equalsIgnoreCase(name))
 		    return one;
 	    }
+
 	    name = pref + name;
 	    for (JobsPlaceHolders one : JobsPlaceHolders.values()) {
-		if (one.isComplex())
-		    continue;
-		if (one.getName().equalsIgnoreCase(name))
+		if (!one.isComplex() && one.getName().equalsIgnoreCase(name))
 		    return one;
 	    }
+
+	    JobsPlaceHolders bestMatch = null;
 	    name = "%" + pref + "_" + original + "%";
 	    for (JobsPlaceHolders one : JobsPlaceHolders.values()) {
-		if (!one.isComplex())
-		    continue;
-		if (!one.getComplexRegexMatchers(name).isEmpty())
-		    return one;
+		if (one.isComplex() && !one.getComplexRegexMatchers(name).isEmpty())
+		    bestMatch = one;
 	    }
+
 //	    For MVdWPlaceholderAPI
 //	    if (Jobs.getInstance().isMVdWPlaceholderAPIEnabled() && original.startsWith(pref+"_")) {
 //		String t = "{" + original + "}";
@@ -155,23 +158,27 @@ public class Placeholder {
 //		    }
 //		}
 //	    }
-	    return null;
+
+	    return bestMatch;
 	}
 
 	public static JobsPlaceHolders getByNameExact(String name) {
 	    name = name.toLowerCase();
+
+	    // Should iterate over all placeholders to match the correct one
+	    // for example with %jobsr_plimit_tleft_money%
+	    JobsPlaceHolders bestMatch = null;
 	    for (JobsPlaceHolders one : JobsPlaceHolders.values()) {
 		if (one.isComplex()) {
 		    if (!one.getComplexRegexMatchers("%" + name + "%").isEmpty()) {
-			return one;
+			bestMatch = one;
 		    }
-		} else {
-		    String n = one.getName();
-		    if (n.equals(name))
-			return one;
+		} else if (one.getName().equals(name)) {
+		    bestMatch = one;
 		}
 	    }
-	    return null;
+
+	    return bestMatch;
 	}
 
 	public String getName() {
@@ -214,36 +221,35 @@ public class Placeholder {
 
 	public List<String> getComplexRegexMatchers(String text) {
 	    List<String> lsInLs = new ArrayList<>();
-	    if (!this.isComplex())
+	    if (!isComplex())
 		return lsInLs;
 
-	    Matcher matcher = this.getRule().getMatcher(text);
+	    Matcher matcher = getRule().getMatcher(text);
 	    if (matcher == null)
 		return lsInLs;
+
 	    while (matcher.find()) {
 		lsInLs.add(matcher.group());
 	    }
+
 	    return lsInLs;
 	}
 
 	public List<String> getComplexValues(String text) {
-
 	    List<String> lsInLs = new ArrayList<>();
-	    if (!this.isComplex() || text == null)
+	    if (!isComplex() || text == null)
 		return lsInLs;
 
-	    Matcher matcher = this.getRule().getMatcher(text);
-	    if (matcher == null)
-		return lsInLs;
-	    while (matcher.find()) {
+	    Matcher matcher = getRule().getMatcher(text);
+	    if (matcher != null && matcher.find()) {
 		try {
 		    for (Integer oneG : groups) {
 			lsInLs.add(matcher.group(oneG + 1));
 		    }
 		} catch (Exception e) {
 		}
-		break;
 	    }
+
 	    return lsInLs;
 	}
 
@@ -273,27 +279,27 @@ public class Placeholder {
     }
 
     public enum JobsPlaceholderType {
-	Jobs, PAPI, MVdW;
+	JOBS, PAPI, MVDW;
     }
 
     public JobsPlaceholderType getPlaceHolderType(Player player, String placeholder) {
 	if (placeholder == null)
 	    return null;
-	if (placeholder.contains("%")) {
-	    if (!placeholder.equals(translateOwnPlaceHolder(player, placeholder)))
-		return JobsPlaceholderType.Jobs;
+
+	if (placeholder.contains("%") && !placeholder.equals(translateOwnPlaceHolder(player, placeholder))) {
+	    return JobsPlaceholderType.JOBS;
 	}
-	if (plugin.isPlaceholderAPIEnabled()) {
-	    if (placeholder.contains("%")) {
-		if (!placeholder.equals(me.clip.placeholderapi.PlaceholderAPI.setPlaceholders((OfflinePlayer) player, placeholder)))
-		    return JobsPlaceholderType.PAPI;
-	    }
+
+	if (plugin.isPlaceholderAPIEnabled() && placeholder.contains("%")
+	    && !placeholder.equals(me.clip.placeholderapi.PlaceholderAPI.setPlaceholders((OfflinePlayer) player, placeholder))) {
+	    return JobsPlaceholderType.PAPI;
 	}
+
 //	For MVdWPlaceholderAPI
 //	if (plugin.isMVdWPlaceholderAPIEnabled()) {
 //	    if (placeholder.contains("{"))
 //		if (!placeholder.equals(be.maximvdw.placeholderapi.PlaceholderAPI.replacePlaceholders(player, placeholder)))
-//		    return CMIPlaceholderType.MVdW;
+//		    return CMIPlaceholderType.MVDW;
 //	}
 	return null;
     }
@@ -301,11 +307,15 @@ public class Placeholder {
     public String updatePlaceHolders(Player player, String message) {
 	if (message == null)
 	    return null;
-	if (message.contains("%"))
+
+	if (message.contains("%")) {
 	    message = translateOwnPlaceHolder(player, message);
-	if (plugin.isPlaceholderAPIEnabled() && message.contains("%")) {
-	    message = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders((OfflinePlayer) player, message);
+
+	    if (plugin.isPlaceholderAPIEnabled()) {
+		message = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders((OfflinePlayer) player, message);
+	    }
 	}
+
 //	For MVdWPlaceholderAPI
 //	if (plugin.isMVdWPlaceholderAPIEnabled()) {
 //	    if (message.contains("{"))
@@ -322,25 +332,26 @@ public class Placeholder {
 	if (message.contains("%")) {
 	    Matcher match = placeholderPatern.matcher(message);
 	    while (match.find()) {
-		try {
-		    String cmd = match.group(2);
-		    if (!message.contains("%"))
-			break;
-		    JobsPlaceHolders place = JobsPlaceHolders.getByNameExact(cmd);
-		    if (place == null)
-			continue;
-		    String group = match.group();
-		    String with = this.getValue(player, place, group);
-		    if (with == null)
-			with = "";
-		    if (with.startsWith("$"))
-			with = "\\" + with;
-		    message = message.replaceFirst(group, with);
-		} catch (Exception e) {
-		    e.printStackTrace();
-		}
+		if (!message.contains("%"))
+		    break;
+
+		String cmd = match.group(2);
+		JobsPlaceHolders place = JobsPlaceHolders.getByNameExact(cmd);
+		if (place == null)
+		    continue;
+
+		String group = match.group();
+		String with = getValue(player, place, group);
+		if (with == null)
+		    with = "";
+
+		if (with.startsWith("$"))
+		    with = "\\" + with;
+
+		message = message.replaceFirst(group, with);
 	    }
 	}
+
 	return message;
     }
 
@@ -367,15 +378,14 @@ public class Placeholder {
     }
 
     private static Job getJobFromValue(String value) {
-	Job j = null;
 	try {
 	    int id = Integer.parseInt(value);
 	    if (id > 0)
-		j = Jobs.getJobs().get(id - 1);
+		return Jobs.getJobs().get(id - 1);
 	} catch (Exception e) {
-	    j = Jobs.getJob(value);
+	    return Jobs.getJob(value);
 	}
-	return j;
+	return null;
     }
 
     private static String simplifyDouble(double value) {
@@ -398,8 +408,7 @@ public class Placeholder {
 		Integer completedQuests = (int) user.getQuestProgressions().stream().filter(q -> q.isCompleted()).count();
 		return Integer.toString(completedQuests);
 	    case user_dailyquests_total:
-		Integer dailyquests = user.getQuestProgressions().size();
-		return Integer.toString(dailyquests);
+		return Integer.toString(user.getQuestProgressions().size());
 	    case user_id:
 		return Integer.toString(user.getUserId());
 	    case user_bstandcount:
@@ -440,6 +449,22 @@ public class Placeholder {
 
 		JobProgression prog = l.get(ThreadLocalRandom.current().nextInt(l.size()));
 		return prog.getJob().getName();
+	    case user_quests:
+		String q = "";
+		for (QuestProgression questProg : user.getQuestProgressions()) {
+		    Quest quest = questProg.getQuest();
+		    if (quest == null || quest.isStopped()) {
+			continue;
+		    }
+
+		    if (!q.isEmpty()) {
+			q += ", ";
+		    }
+
+		    q += quest.getQuestName();
+		}
+
+		return q;
 	    default:
 		break;
 	    }
@@ -518,6 +543,20 @@ public class Placeholder {
 			return "";
 		    Title title = Jobs.gettitleManager().getTitle(j.getLevel(), j.getJob().getName());
 		    return title == null ? "" : title.getChatColor() + title.getName();
+		case user_archived_jobs_level:
+		    if (j == null) {
+			return "";
+		    }
+
+		    JobProgression archivedJobProg = user.getArchivedJobProgression(j.getJob());
+		    return archivedJobProg == null ? "" : Integer.toString(archivedJobProg.getLevel());
+		case user_archived_jobs_exp:
+		    if (j == null) {
+			return "";
+		    }
+
+		    JobProgression archivedJobProgression = user.getArchivedJobProgression(j.getJob());
+		    return archivedJobProgression == null ? "" : Double.toString(archivedJobProgression.getExperience());
 		default:
 		    break;
 		}
@@ -554,9 +593,7 @@ public class Placeholder {
 			return convert(true);
 
 			case maxjobs:
-			    int max = Jobs.getPermissionManager().getMaxPermission(user, "jobs.max", false).intValue();
-			    max = max == 0 ? Jobs.getGCManager().getMaxJobs() : max;
-			    return Integer.toString(max);
+			    return Integer.toString(Jobs.getPlayerManager().getMaxJobs(user));
 
 		    default:
 			break;
@@ -603,7 +640,7 @@ public class Placeholder {
 	// Global placeholders
 	switch (placeHolder) {
 	case maxjobs:
-	    return Integer.toString(Jobs.getGCManager().getMaxJobs());
+	    return Integer.toString(Jobs.getPlayerManager().getMaxJobs(user));
 	case total_workers:
 	    return Integer.toString(Jobs.getJobsDAO().getTotalPlayers());
 	default:

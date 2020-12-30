@@ -171,8 +171,8 @@ public class BlockOwnerShip {
 	}
 
 	public void load() {
-		YmlMaker f = new YmlMaker(Jobs.getInstance(), "furnaceBrewingStands.yml");
-		YmlMaker f2 = new YmlMaker(Jobs.getInstance(), "blockOwnerShips.yml");
+		YmlMaker f = new YmlMaker(Jobs.getFolder(), "furnaceBrewingStands.yml");
+		YmlMaker f2 = new YmlMaker(Jobs.getFolder(), "blockOwnerShips.yml");
 		if (!f.exists() && !f2.exists())
 			return;
 
@@ -181,8 +181,6 @@ public class BlockOwnerShip {
 		}
 
 		f = f2;
-
-		int total = 0;
 
 		FileConfiguration config = f.getConfig();
 
@@ -193,6 +191,7 @@ public class BlockOwnerShip {
 		if (isReassignDisabled() || !config.isConfigurationSection(path))
 			return;
 
+		int total = 0;
 		ConfigurationSection section = config.getConfigurationSection(path);
 		for (String one : section.getKeys(false)) {
 			String value = section.getString(one);
@@ -231,22 +230,26 @@ public class BlockOwnerShip {
 	}
 
 	public void save() {
-		YmlMaker f = new YmlMaker(Jobs.getInstance(), "furnaceBrewingStands.yml");
+		YmlMaker f = new YmlMaker(Jobs.getFolder(), "furnaceBrewingStands.yml");
 		if (f.exists()) {
 			f.getConfigFile().renameTo(new File(Jobs.getFolder(), "blockOwnerShips.yml"));
 		}
 
-		f = new YmlMaker(Jobs.getInstance(), "blockOwnerShips.yml");
+		if (blockOwnerShips.isEmpty()) {
+			return;
+		}
+
+		f = new YmlMaker(Jobs.getFolder(), "blockOwnerShips.yml");
 		if (!f.exists())
 			f.createNewFile();
 
 		f.saveDefaultConfig();
 
-		FileConfiguration config = f.getConfig();
-
 		if (isReassignDisabled()) {
 			return;
 		}
+
+		FileConfiguration config = f.getConfig();
 
 		String path = (type == BlockTypes.FURNACE ? "Furnace"
 				: type == BlockTypes.BLAST_FURNACE ? "BlastFurnace"
@@ -255,7 +258,6 @@ public class BlockOwnerShip {
 
 		for (Entry<UUID, List<blockLoc>> one : blockOwnerShips.entrySet()) {
 			String full = "";
-
 			for (blockLoc oneL : one.getValue()) {
 				if (!full.isEmpty())
 					full += ";";

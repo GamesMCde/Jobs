@@ -156,7 +156,7 @@ public class editquests implements Cmd {
 
 		    Util.getQuestsEditorMap().remove(player.getUniqueId());
 
-		    Jobs.getInstance().ShowPagination(sender, pi, "jobs editquests list " + job.getName() + " " + quest.getConfigName() + " " + 0);
+		    Jobs.getInstance().showPagination(sender, pi, "jobs editquests list " + job.getName() + " " + quest.getConfigName() + " " + 0);
 		    return true;
 		}
 	    }
@@ -222,8 +222,8 @@ public class editquests implements Cmd {
 		String j = "Jobs." + job.getJobKeyName() + ".Quests." + q.getConfigName() + ".";
 
 		if (file.isString(j + "Target")) {
-		    Jobs.getConfigManager().changeJobsSettings(file.getString(j + "Target"), target);
-		    Jobs.getConfigManager().changeJobsSettings(file.getString(j + "Action"), actionT.getName());
+		    Jobs.getConfigManager().changeJobsSettings(args[1], file.getString(j + "Target"), target);
+		    Jobs.getConfigManager().changeJobsSettings(args[1], file.getString(j + "Action"), actionT.getName());
 		} else if (file.isList(j + "Objectives")) {
 		    List<String> list = file.getStringList(j + "Objectives");
 		    for (String s : list) {
@@ -561,8 +561,8 @@ public class editquests implements Cmd {
 		String j = "Jobs." + job.getJobKeyName() + ".Quests." + q.getConfigName() + ".";
 
 		if (file.isString(j + "Target")) {
-		    Jobs.getConfigManager().changeJobsSettings(file.getString(j + "Target"), (type + subType).toLowerCase());
-		    Jobs.getConfigManager().changeJobsSettings(file.getString(j + "Action"), actionT.getName());
+		    Jobs.getConfigManager().changeJobsSettings(args[1], file.getString(j + "Target"), (type + subType).toLowerCase());
+		    Jobs.getConfigManager().changeJobsSettings(args[1], file.getString(j + "Action"), actionT.getName());
 		} else if (file.isList(j + "Objectives")) {
 		    List<String> list = file.getStringList(j + "Objectives");
 		    list.add(actionT.getName() + ";" + (type + subType).toLowerCase() + ";" + amount);

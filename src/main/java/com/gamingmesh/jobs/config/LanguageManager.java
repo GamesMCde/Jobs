@@ -23,7 +23,7 @@ public class LanguageManager {
      * 
      * loads from Jobs/locale/messages_en.yml
      */
-    synchronized void load() {
+    void load() {
 	// This should be present to copy over default locale files into locale folder if file doesn't exist. Grabs all files from plugin file.
 	languages = new ArrayList<>();
 	try {
@@ -33,7 +33,7 @@ public class LanguageManager {
 	}
 	for (Iterator<String> e1 = this.languages.iterator(); e1.hasNext();) {
 	    String lang = e1.next();
-	    YmlMaker langFile = new YmlMaker(Jobs.getInstance(), "locale" + File.separator + "messages_" + lang + ".yml");
+	    YmlMaker langFile = new YmlMaker(Jobs.getFolder(), "locale" + File.separator + "messages_" + lang + ".yml");
 	    langFile.saveDefaultConfig();
 	}
 	//Up to here.
@@ -58,14 +58,7 @@ public class LanguageManager {
 		f = new File(Jobs.getFolder(), "locale" + File.separator + "messages_" + lang + ".yml");
 	    }
 
-	    ConfigReader c = null;
-	    try {
-		c = new ConfigReader(f);
-	    } catch (Throwable e) {
-		e.printStackTrace();
-	    }
-	    if (c == null)
-		continue;
+	    ConfigReader c = new ConfigReader(f);
 	    c.copyDefaults(true);
 
 	    Jobs.getGCManager().getCommandArgs().clear();

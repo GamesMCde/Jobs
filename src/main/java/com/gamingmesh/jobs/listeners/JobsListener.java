@@ -135,11 +135,7 @@ public class JobsListener implements Listener {
 	    return;
 
 	Player player = event.getPlayer();
-	ItemStack iih = Jobs.getNms().getItemInMainHand(player);
-	if (iih == null || iih.getType() == Material.AIR)
-	    return;
-
-	if (iih.getType() != CMIMaterial.get(Jobs.getGCManager().getSelectionTool()).getMaterial())
+	if (Jobs.getNms().getItemInMainHand(player).getType() != CMIMaterial.get(Jobs.getGCManager().getSelectionTool()).getMaterial())
 	    return;
 
 	if (!Jobs.getGCManager().canPerformActionInWorld(event.getPlayer().getWorld()) || !player.hasPermission("jobs.area.select"))
@@ -164,8 +160,6 @@ public class JobsListener implements Listener {
 	    JobsAreaSelectionEvent jobsAreaSelectionEvent = new JobsAreaSelectionEvent(player, Jobs.getSelectionManager().getSelectionCuboid(player));
 	    Bukkit.getServer().getPluginManager().callEvent(jobsAreaSelectionEvent);
 	}
-
-	return;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -201,11 +195,9 @@ public class JobsListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerWorldChange(PlayerChangedWorldEvent event) {
-	if (!plugin.isEnabled())
-	    return;
-
-	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(event.getPlayer());
-	Jobs.getPermissionHandler().recalculatePermissions(jPlayer);
+	if (plugin.isEnabled()) {
+	    Jobs.getPermissionHandler().recalculatePermissions(Jobs.getPlayerManager().getJobsPlayer(event.getPlayer()));
+	}
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -310,9 +302,9 @@ public class JobsListener implements Listener {
 	    special = true;
 	}
 
-	int Number = 0;
+	int number = 0;
 	try {
-	    Number = Integer.parseInt(numberString);
+	    number = Integer.parseInt(numberString);
 	} catch (NumberFormatException e) {
 	    player.sendMessage(Jobs.getLanguage().getMessage("general.error.notNumber"));
 	    return;
@@ -322,7 +314,7 @@ public class JobsListener implements Listener {
 
 	Location loc = sign.getLocation();
 	signInfo.setLoc(loc);
-	signInfo.setNumber(Number);
+	signInfo.setNumber(number);
 	if (job != null)
 	    signInfo.setJobName(job.getName());
 	signInfo.setType(type);
@@ -356,7 +348,6 @@ public class JobsListener implements Listener {
 	}
 
 	String command = CMIChatColor.stripColor(event.getLine(1)).toLowerCase();
-
 	for (String key : Jobs.getGCManager().keys) {
 	    if (command.equalsIgnoreCase(CMIChatColor.stripColor(Jobs.getLanguage().getMessage("signs.secondline." + key)))) {
 		event.setLine(1, Convert(Jobs.getLanguage().getMessage("signs.secondline." + key)));
@@ -452,14 +443,14 @@ public class JobsListener implements Listener {
     public void onLimitedItemInteract(PlayerInteractEvent event) {
 	Player player = event.getPlayer();
 	ItemStack iih = Jobs.getNms().getItemInMainHand(player);
-	if (iih == null || iih.getType() == Material.AIR)
+	if (iih.getType() == Material.AIR)
 	    return;
 
 	if (event.getClickedBlock() != null && !Jobs.getGCManager().canPerformActionInWorld(event.getClickedBlock().getWorld()))
 	    return;
 
-	JobsPlayer JPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-	if (JPlayer == null)
+	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
+	if (jPlayer == null)
 	    return;
 
 	Map<Enchantment, Integer> enchants = new HashMap<>(iih.getEnchantments());
@@ -479,11 +470,9 @@ public class JobsListener implements Listener {
 
 	String meinOk = null;
 
-	mein: for (JobProgression one : JPlayer.getJobProgression()) {
+	mein: for (JobProgression one : jPlayer.getJobProgression()) {
 	    for (JobLimitedItems oneItem : one.getJob().getLimitedItems().values()) {
-		if (one.getLevel() >= oneItem.getLevel())
-		    continue;
-		if (!isThisItem(oneItem, CMIMaterial.get(iih), name, lore, enchants))
+		if (one.getLevel() >= oneItem.getLevel() || !isThisItem(oneItem, CMIMaterial.get(iih), name, lore, enchants))
 		    continue;
 		meinOk = one.getJob().getName();
 		break mein;
@@ -500,7 +489,7 @@ public class JobsListener implements Listener {
 	if (oneItem.getType() != mat)
 	    return false;
 
-	if (oneItem.getName() != null && name != null && !CMIChatColor.translate(oneItem.getName()).equalsIgnoreCase(name)) {
+	if (oneItem.getName() != null && !CMIChatColor.translate(oneItem.getName()).equalsIgnoreCase(name)) {
 	    return false;
 	}
 
@@ -595,7 +584,6 @@ public class JobsListener implements Listener {
 		    event.setCancelled(true);
 		}
 	    }
-
 	} else {
 	    ItemStack newArmorPiece = event.getCursor();
 	    ItemStack oldArmorPiece = event.getCurrentItem();

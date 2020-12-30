@@ -124,8 +124,7 @@ public class ScheduleManager {
     }
 
     public static String getWeekDay() {
-	Calendar c = Calendar.getInstance();
-	int dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
+	int dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
 	switch (dayOfWeek) {
 	case 2:
 	    return "monday";
@@ -154,7 +153,7 @@ public class ScheduleManager {
     public void load() {
 	BOOSTSCHEDULE.clear();
 
-	jobSchedule = new YmlMaker(plugin, "schedule.yml");
+	jobSchedule = new YmlMaker(Jobs.getFolder(), "schedule.yml");
 	jobSchedule.saveDefaultConfig();
 
 	YamlConfiguration conf = YamlConfiguration.loadConfiguration(jobSchedule.getConfigFile());

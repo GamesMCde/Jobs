@@ -13,7 +13,7 @@ public class JobsConnection {
 	this.conn = conn;
     }
 
-    public synchronized Connection getConnection() {
+    public Connection getConnection() {
 	return conn;
     }
 
@@ -27,11 +27,7 @@ public class JobsConnection {
     }
 
     public synchronized boolean isValid(int timeout) throws SQLException {
-	try {
-	    return conn.isValid(timeout);
-	} catch (AbstractMethodError e) {
-	    return true;
-	}
+	return conn.isValid(timeout);
     }
 
     public synchronized void closeConnection() throws SQLException {

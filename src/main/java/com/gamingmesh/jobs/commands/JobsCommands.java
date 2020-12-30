@@ -35,7 +35,7 @@ public class JobsCommands implements CommandExecutor {
 
     private static final String packagePath = "com.gamingmesh.jobs.commands.list";
 
-    private final Map<String, Integer> CommandList = new HashMap<>();
+    private final Map<String, Integer> commandList = new HashMap<>();
 
     protected Jobs plugin;
 
@@ -44,12 +44,13 @@ public class JobsCommands implements CommandExecutor {
     }
 
     public Map<String, Integer> getCommands() {
-	return CommandList;
+	return commandList;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-	if (sender instanceof Player && !Jobs.getGCManager().canPerformActionInWorld(((Player) sender).getWorld())) {
+	if (sender instanceof Player && !Jobs.getGCManager().canPerformActionInWorld(((Player) sender).getWorld())
+		    && !sender.hasPermission("jobs.disabledworld.commands")) {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("general.error.worldisdisabled"));
 	    return true;
 	}
@@ -95,9 +96,6 @@ public class JobsCommands implements CommandExecutor {
 	if (back)
 	    return true;
 
-	if (!(sender instanceof Player))
-	    return help(sender, 1);
-
 	return help(sender, 1);
     }
 
@@ -128,7 +126,7 @@ public class JobsCommands implements CommandExecutor {
     }
 
     protected boolean help(CommandSender sender, int page) {
-	Map<String, Integer> commands = GetCommands(sender);
+	Map<String, Integer> commands = getCommands(sender);
 	if (commands.isEmpty()) {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("general.error.permission"));
 	    return true;
@@ -154,13 +152,13 @@ public class JobsCommands implements CommandExecutor {
 	    sender.sendMessage(msg);
 	}
 
-	plugin.ShowPagination(sender, pi, label + " ?");
+	plugin.showPagination(sender, pi, label + " ?");
 	return true;
     }
 
-    public Map<String, Integer> GetCommands(CommandSender sender) {
+    public Map<String, Integer> getCommands(CommandSender sender) {
 	Map<String, Integer> temp = new HashMap<>();
-	for (Entry<String, Integer> cmd : CommandList.entrySet()) {
+	for (Entry<String, Integer> cmd : commandList.entrySet()) {
 	    if (sender instanceof Player && !hasCommandPermission(sender, cmd.getKey()))
 		continue;
 
@@ -189,7 +187,7 @@ public class JobsCommands implements CommandExecutor {
 		if (!met.isAnnotationPresent(JobCommand.class))
 		    continue;
 
-		CommandList.put(oneClass.getKey(), met.getAnnotation(JobCommand.class).value());
+		commandList.put(oneClass.getKey(), met.getAnnotation(JobCommand.class).value());
 		break;
 	    }
 	}
@@ -312,13 +310,13 @@ public class JobsCommands implements CommandExecutor {
 	    sender.sendMessage(one);
 	}
 
-	String t = type == "" ? "" : " " + type;
+	String t = type.isEmpty() ? "" : " " + type;
 
 	if (sender instanceof Player)
 	    if (sender.getName().equalsIgnoreCase(player.getName()))
-		plugin.ShowPagination(sender, pi, "jobs info " + job.getName() + t);
+		plugin.showPagination(sender, pi, "jobs info " + job.getName() + t);
 	    else
-		plugin.ShowPagination(sender, pi, "jobs playerinfo " + player.getName() + " " + job.getName() + t);
+		plugin.showPagination(sender, pi, "jobs playerinfo " + player.getName() + " " + job.getName() + t);
     }
 
     /**
@@ -337,27 +335,25 @@ public class JobsCommands implements CommandExecutor {
 	message.append(Jobs.getLanguage().getMessage("command.info.output." + type.getName().toLowerCase() + ".info"));
 	message.append(":\n");
 
-	int level = 1;
-
 	JobProgression prog = player.getJobProgression(job);
-	if (prog != null)
-	    level = prog.getLevel();
+	int level = prog != null ? prog.getLevel() : 1;
 	int numjobs = player.getJobProgression().size();
+
 	List<JobInfo> jobInfo = job.getJobInfo(type);
 	for (JobInfo info : jobInfo) {
 
 	    String materialName = info.getRealisticName();
 
-	    double income = info.getIncome(level, numjobs);
+	    double income = info.getIncome(level, numjobs, player.maxJobsEquation);
 
 	    income = boost.getFinalAmount(CurrencyType.MONEY, income);
 	    String incomeColor = income >= 0 ? "" : ChatColor.DARK_RED.toString();
 
-	    double xp = info.getExperience(level, numjobs);
+	    double xp = info.getExperience(level, numjobs, player.maxJobsEquation);
 	    xp = boost.getFinalAmount(CurrencyType.EXP, xp);
 	    String xpColor = xp >= 0 ? "" : ChatColor.GRAY.toString();
 
-	    double points = info.getPoints(level, numjobs);
+	    double points = info.getPoints(level, numjobs, player.maxJobsEquation);
 	    points = boost.getFinalAmount(CurrencyType.POINTS, points);
 	    String pointsColor = xp >= 0 ? "" : ChatColor.RED.toString();
 
@@ -450,7 +446,7 @@ public class JobsCommands implements CommandExecutor {
     public String jobStatsMessageArchive(JobsPlayer jPlayer, JobProgression jobProg) {
 	int level = jPlayer.getLevelAfterRejoin(jobProg);
 	double exp = jPlayer.getExpAfterRejoin(jobProg, jPlayer.getLevelAfterRejoin(jobProg));
-	String message = Jobs.getLanguage().getMessage("command.stats.output",
+	String message = Jobs.getLanguage().getMessage("command.stats.output.message",
 	    "%joblevel%", level,
 	    "%jobname%", jobProg.getJob().getNameWithColor(),
 	    "%jobxp%", Math.round(exp * 100.0) / 100.0,

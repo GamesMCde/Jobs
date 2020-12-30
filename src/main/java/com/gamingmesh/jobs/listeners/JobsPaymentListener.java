@@ -26,6 +26,7 @@ import com.gamingmesh.jobs.container.*;
 import com.gamingmesh.jobs.container.blockOwnerShip.BlockOwnerShip;
 import com.gamingmesh.jobs.container.blockOwnerShip.BlockOwnerShip.ownershipFeedback;
 import com.gamingmesh.jobs.hooks.HookManager;
+import com.gamingmesh.jobs.hooks.JobsHook;
 import com.google.common.base.Objects;
 
 import org.bukkit.Bukkit;
@@ -83,6 +84,7 @@ import org.bukkit.inventory.EnchantingInventory;
 import org.bukkit.inventory.GrindstoneInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.SmithingInventory;
 import org.bukkit.inventory.StonecutterInventory;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -221,9 +223,11 @@ public class JobsPaymentListener implements Listener {
 	    return;
 
 	ItemStack itemInHand = Jobs.getNms().getItemInMainHand(player);
+	if (itemInHand.getType() != Material.BUCKET && itemInHand.getType() != Material.BOWL) {
+	    return;
+	}
 
-	if (itemInHand.getType() != Material.BUCKET
-	    && (cow.getType() == EntityType.MUSHROOM_COW && itemInHand.getType() != Material.BOWL)) {
+	if (itemInHand.getType() == Material.BOWL && cow.getType() != EntityType.MUSHROOM_COW) {
 	    return;
 	}
 
@@ -300,8 +304,7 @@ public class JobsPaymentListener implements Listener {
 	if (jDamager == null || sheep.getColor() == null)
 	    return;
 
-	if (Jobs.getGCManager().payForStackedEntities && HookManager.isPluginEnabled("WildStacker")
-		    && HookManager.getWildStackerHandler().isStackedEntity(sheep)) {
+	if (Jobs.getGCManager().payForStackedEntities && JobsHook.WildStacker.isEnabled() && HookManager.getWildStackerHandler().isStackedEntity(sheep)) {
 	    for (com.bgsoftware.wildstacker.api.objects.StackedEntity stacked : HookManager.getWildStackerHandler().getStackedEntities()) {
 		if (stacked.getType() == sheep.getType()) {
 		    Jobs.action(jDamager, new CustomKillInfo(((Sheep) stacked.getLivingEntity()).getColor().name(), ActionType.SHEAR));
@@ -534,8 +537,7 @@ public class JobsPaymentListener implements Listener {
 	if (jDamager == null)
 	    return;
 
-	if (Jobs.getGCManager().payForStackedEntities && HookManager.isPluginEnabled("WildStacker")
-		    && HookManager.getWildStackerHandler().isStackedEntity(animal)) {
+	if (Jobs.getGCManager().payForStackedEntities && JobsHook.WildStacker.isEnabled() && HookManager.getWildStackerHandler().isStackedEntity(animal)) {
 	    for (com.bgsoftware.wildstacker.api.objects.StackedEntity stacked : HookManager.getWildStackerHandler().getStackedEntities()) {
 		if (stacked.getType() == animal.getType()) {
 		    Jobs.action(jDamager, new EntityActionInfo(stacked.getLivingEntity(), ActionType.TAME));
@@ -672,7 +674,7 @@ public class JobsPaymentListener implements Listener {
 
 	// Check Dyes
 	if (y >= 2 && (third != null && third.isDye() || second != null && second.isDye() || first != null && first.isDye())
-		&& (leather || shulker)) {
+	    && (leather || shulker)) {
 	    Jobs.action(jPlayer, new ItemActionInfo(sourceItems[0], ActionType.DYE));
 	    for (ItemStack OneDye : DyeStack) {
 		Jobs.action(jPlayer, new ItemActionInfo(OneDye, ActionType.DYE));
@@ -801,14 +803,16 @@ public class JobsPaymentListener implements Listener {
 	Inventory inv = event.getInventory();
 	// must be anvil inventory
 	if (!(inv instanceof AnvilInventory) && (Version.isCurrentEqualOrHigher(Version.v1_14_R1)
-	    && !(inv instanceof GrindstoneInventory) && !(inv instanceof StonecutterInventory)))
+	    && !(inv instanceof GrindstoneInventory) && !(inv instanceof StonecutterInventory)
+	    && !(inv instanceof SmithingInventory)))
 	    return;
 
 	int slot = event.getSlot();
 	if (event.getSlotType() != SlotType.RESULT || (slot != 2 && slot != 1))
 	    return;
 
-	if ((Version.isCurrentEqualOrHigher(Version.v1_14_R1) && !(inv instanceof StonecutterInventory)) && slot == 1)
+	if ((Version.isCurrentEqualOrHigher(Version.v1_14_R1)
+	    && !(inv instanceof StonecutterInventory) && !(inv instanceof SmithingInventory)) && slot == 1)
 	    return;
 
 	if (!(event.getWhoClicked() instanceof Player))
@@ -878,7 +882,8 @@ public class JobsPaymentListener implements Listener {
 	if (jPlayer == null)
 	    return;
 
-	if (Version.isCurrentEqualOrHigher(Version.v1_14_R1) && inv instanceof StonecutterInventory) {
+	if (Version.isCurrentEqualOrHigher(Version.v1_14_R1) && (inv instanceof StonecutterInventory
+	    || inv instanceof SmithingInventory)) {
 	    if (event.getAction() != InventoryAction.DROP_ONE_SLOT) {
 		Jobs.action(jPlayer, new ItemActionInfo(resultStack, ActionType.CRAFT));
 	    }
@@ -1195,10 +1200,12 @@ public class JobsPaymentListener implements Listener {
 	if (pDamager == null)
 	    return;
 
-	// Prevent payment for killing mobs with mypet by denying permission
-	if (HookManager.getMyPetManager() != null && HookManager.getMyPetManager().isMyPet(e.getDamager(), null)) {
+	// Prevent payment for killing mobs with pet by denying permission
+	if ((HookManager.getMyPetManager() != null && HookManager.getMyPetManager().isMyPet(e.getDamager(), null))
+	    || (e.getDamager() instanceof Tameable && ((Tameable) e.getDamager()).isTamed() &&
+		((Tameable) e.getDamager()).getOwner() instanceof Player)) {
 	    for (PermissionAttachmentInfo perm : pDamager.getEffectivePermissions()) {
-		if (perm.getPermission().equals("jobs.petpay") && !perm.getValue()) {
+		if ("jobs.petpay".equals(perm.getPermission()) && !perm.getValue()) {
 		    return;
 		}
 	    }
@@ -1237,8 +1244,7 @@ public class JobsPaymentListener implements Listener {
 		return;
 	}
 
-	if (Jobs.getGCManager().payForStackedEntities && HookManager.isPluginEnabled("WildStacker")
-		    && HookManager.getWildStackerHandler().isStackedEntity(lVictim)) {
+	if (Jobs.getGCManager().payForStackedEntities && JobsHook.WildStacker.isEnabled() && HookManager.getWildStackerHandler().isStackedEntity(lVictim)) {
 	    for (com.bgsoftware.wildstacker.api.objects.StackedEntity stacked : HookManager.getWildStackerHandler().getStackedEntities()) {
 		if (stacked.getType() == lVictim.getType()) {
 		    Jobs.action(jDamager, new EntityActionInfo(stacked.getLivingEntity(), ActionType.KILL), e.getDamager(), stacked.getLivingEntity());
@@ -1478,7 +1484,7 @@ public class JobsPaymentListener implements Listener {
 	    return;
 
 	if (!(event.getEntity() instanceof Player) || event.getEntity().hasMetadata("NPC")
-		|| event.getFoodLevel() <= ((Player) event.getEntity()).getFoodLevel())
+	    || event.getFoodLevel() <= ((Player) event.getEntity()).getFoodLevel())
 	    return;
 
 	Player player = (Player) event.getEntity();
@@ -1568,13 +1574,15 @@ public class JobsPaymentListener implements Listener {
 	    if (Jobs.getGCManager().useBlockProtection && block.getState().hasMetadata(BlockMetadata))
 		return;
 
-	    BlockActionInfo bInfo = new BlockActionInfo(block, ActionType.TNTBREAK);
-	    Jobs.action(jPlayer, bInfo, block);
+	    Jobs.action(jPlayer, new BlockActionInfo(block, ActionType.TNTBREAK), block);
 	}
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerInteract(PlayerInteractEvent event) {
+	if (event.isCancelled())
+	    return;
+
 	Player p = event.getPlayer();
 	if (!Jobs.getGCManager().canPerformActionInWorld(p.getWorld()))
 	    return;
@@ -1584,8 +1592,7 @@ public class JobsPaymentListener implements Listener {
 	    return;
 
 	CMIMaterial cmat = CMIMaterial.get(block);
-	final JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(p);
-
+	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(p);
 	Material hand = Jobs.getNms().getItemInMainHand(p).getType();
 
 	if (Version.isCurrentEqualOrHigher(Version.v1_14_R1) && event.useInteractedBlock() != org.bukkit.event.Event.Result.DENY
@@ -1606,11 +1613,11 @@ public class JobsPaymentListener implements Listener {
 	if (Version.isCurrentEqualOrHigher(Version.v1_15_R1) && event.useInteractedBlock() != org.bukkit.event.Event.Result.DENY
 	    && event.getAction() == Action.RIGHT_CLICK_BLOCK && !p.isSneaking() && jPlayer != null
 	    && (cmat == CMIMaterial.BEEHIVE || cmat == CMIMaterial.BEE_NEST)) {
-		org.bukkit.block.data.type.Beehive beehive = (org.bukkit.block.data.type.Beehive) block.getBlockData();
-		if (beehive.getHoneyLevel() == beehive.getMaximumHoneyLevel() && (hand == CMIMaterial.SHEARS.getMaterial()
-		    || hand == CMIMaterial.GLASS_BOTTLE.getMaterial())) {
-		    Jobs.action(jPlayer, new BlockCollectInfo(block, ActionType.COLLECT, beehive.getHoneyLevel()), block);
-		}
+	    org.bukkit.block.data.type.Beehive beehive = (org.bukkit.block.data.type.Beehive) block.getBlockData();
+	    if (beehive.getHoneyLevel() == beehive.getMaximumHoneyLevel() && (hand == CMIMaterial.SHEARS.getMaterial()
+		|| hand == CMIMaterial.GLASS_BOTTLE.getMaterial())) {
+		Jobs.action(jPlayer, new BlockCollectInfo(block, ActionType.COLLECT, beehive.getHoneyLevel()), block);
+	    }
 	}
 
 	boolean isBrewingStand = cmat == CMIMaterial.BREWING_STAND || cmat == CMIMaterial.LEGACY_BREWING_STAND;
@@ -1622,7 +1629,7 @@ public class JobsPaymentListener implements Listener {
 	    }
 
 	    String name = Jobs.getLanguage().getMessage("general.info.blocks." + (isBrewingStand ? "brewingstand" : isFurnace
-			? "furnace" : cmat == CMIMaterial.SMOKER ? "smoker" : cmat == CMIMaterial.BLAST_FURNACE ? "blastfurnace" : ""));
+		? "furnace" : cmat == CMIMaterial.SMOKER ? "smoker" : cmat == CMIMaterial.BLAST_FURNACE ? "blastfurnace" : ""));
 	    ownershipFeedback done = blockOwner.register(p, block);
 	    if (done == ownershipFeedback.tooMany) {
 		boolean report = false;
@@ -1648,22 +1655,18 @@ public class JobsPaymentListener implements Listener {
 		    "[max]", jPlayer.getMaxOwnerShipAllowed(blockOwner.getType()) == 0 ? "-" : jPlayer.getMaxOwnerShipAllowed(blockOwner.getType())));
 	    }
 	} else if (Version.isCurrentEqualOrHigher(Version.v1_13_R1) &&
-	    block.getType().toString().startsWith("STRIPPED_") &&
-	    event.getAction() == Action.RIGHT_CLICK_BLOCK && jPlayer != null) {
-	    ItemStack iih = Jobs.getNms().getItemInMainHand(p);
-	    if (iih.getType().toString().endsWith("_AXE")) {
-		// check if player is riding
-		if (Jobs.getGCManager().disablePaymentIfRiding && p.isInsideVehicle())
-		    return;
+	    !block.getType().toString().startsWith("STRIPPED_") && block.getType().toString().endsWith("_LOG") &&
+	    event.getAction() == Action.RIGHT_CLICK_BLOCK && jPlayer != null && hand.toString().endsWith("_AXE")) {
+	    // check if player is riding
+	    if (Jobs.getGCManager().disablePaymentIfRiding && p.isInsideVehicle())
+		return;
 
-		// Prevent item durability loss
-		if (!Jobs.getGCManager().payItemDurabilityLoss && iih.getType().getMaxDurability()
-		    - Jobs.getNms().getDurability(iih) != iih.getType().getMaxDurability())
-		    return;
+	    // Prevent item durability loss
+	    if (!Jobs.getGCManager().payItemDurabilityLoss && hand.getMaxDurability()
+		- Jobs.getNms().getDurability(Jobs.getNms().getItemInMainHand(p)) != hand.getMaxDurability())
+		return;
 
-		Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () ->
-		    Jobs.action(jPlayer, new BlockActionInfo(block, ActionType.STRIPLOGS), block), 1);
-	    }
+	    Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> Jobs.action(jPlayer, new BlockActionInfo(block, ActionType.STRIPLOGS), block), 1);
 	}
     }
 
@@ -1726,9 +1729,8 @@ public class JobsPaymentListener implements Listener {
 	    return true;
 
 	ItemStack hand = Jobs.getNms().getItemInMainHand(p);
-	CMIMaterial cmat = CMIMaterial.get(hand);
 
-	HashMap<Enchantment, Integer> got = Jobs.getGCManager().whiteListedItems.get(cmat);
+	HashMap<Enchantment, Integer> got = Jobs.getGCManager().whiteListedItems.get(CMIMaterial.get(hand));
 	if (got == null)
 	    return false;
 

@@ -18,49 +18,71 @@
 
 package com.gamingmesh.jobs.config;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.commons.lang.StringEscapeUtils;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
+
+import com.gamingmesh.jobs.ItemBoostManager;
+import com.gamingmesh.jobs.Jobs;
 import com.gamingmesh.jobs.CMILib.CMIChatColor;
 import com.gamingmesh.jobs.CMILib.CMIEnchantment;
 import com.gamingmesh.jobs.CMILib.CMIEntityType;
 import com.gamingmesh.jobs.CMILib.CMIMaterial;
 import com.gamingmesh.jobs.CMILib.ConfigReader;
 import com.gamingmesh.jobs.CMILib.Version;
-import com.gamingmesh.jobs.ItemBoostManager;
-import com.gamingmesh.jobs.Jobs;
-import com.gamingmesh.jobs.container.*;
+import com.gamingmesh.jobs.container.ActionType;
+import com.gamingmesh.jobs.container.BoostMultiplier;
+import com.gamingmesh.jobs.container.CurrencyType;
+import com.gamingmesh.jobs.container.DisplayMethod;
+import com.gamingmesh.jobs.container.Job;
+import com.gamingmesh.jobs.container.JobCommands;
+import com.gamingmesh.jobs.container.JobConditions;
+import com.gamingmesh.jobs.container.JobInfo;
+import com.gamingmesh.jobs.container.JobItems;
+import com.gamingmesh.jobs.container.JobLimitedItems;
+import com.gamingmesh.jobs.container.JobPermission;
+import com.gamingmesh.jobs.container.Quest;
+import com.gamingmesh.jobs.container.QuestObjective;
+import com.gamingmesh.jobs.resources.jfep.ParseError;
 import com.gamingmesh.jobs.resources.jfep.Parser;
 import com.gamingmesh.jobs.stuff.Util;
 
-import org.apache.commons.lang.StringEscapeUtils;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.enchantments.Enchantment;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.EnchantmentStorageMeta;
-
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-
 public class ConfigManager {
 
+    @Deprecated
     private File jobFile;
+    private File jobsPathFolder;
+
+    private final Set<YmlMaker> jobFiles = new HashSet<>();
+
+    public static final String EXAMPLEJOBNAME = "_EXAMPLE";
+    public static final String EXAMPLEJOBINTERNALNAME = "exampleJob";
 
     public ConfigManager() {
 	this.jobFile = new File(Jobs.getFolder(), "jobConfig.yml");
-	updateFile();
+	this.jobsPathFolder = new File(Jobs.getFolder(), "jobs");
+
+	migrateJobs();
     }
 
-    private void updateFile() {
-	ConfigReader cfg = null;
-	try {
-	    cfg = new ConfigReader(jobFile);
-	} catch (Exception e) {
-	    e.printStackTrace();
+    private void updateExampleFile() {
+	ConfigReader cfg = new ConfigReader(new File(Jobs.getFolder(), "jobs" + File.separator + EXAMPLEJOBNAME.toUpperCase() + ".yml"));
+	if (!cfg.getFile().isFile())
 	    return;
-	}
+	cfg.load();
 
 	cfg.header(Arrays.asList("Jobs configuration.", "", "Edited by roracle to include 1.13 items and item names, prepping for 1.14 as well.",
 	    "",
@@ -74,11 +96,7 @@ public class ConfigManager {
 	    "and job2 gives 5 income and experience for killing a player. When the user kills a player",
 	    "they will get 15 income and job1 will gain 10 experience and job2 will gain 5 experience."));
 
-	if (!cfg.contains("Jobs")) {
-	    cfg.set("Jobs", cfg.getC().get("Jobs"));
-	}
-
-	String pt = "Jobs.exampleJob";
+	String pt = "exampleJob";
 	cfg.addComment(pt, "Must be one word",
 	    "This job will be ignored as this is just example of all possible actions.");
 	cfg.addComment(pt + ".fullname", "full name of the job (displayed when browsing a job, used when joining and leaving",
@@ -126,6 +144,7 @@ public class ConfigManager {
 	cfg.addComment(pt + ".leveling-progression-equation", "Equation used for calculating how much experience is needed to go to the next level.",
 	    "Available parameters:",
 	    "  numjobs - the number of jobs the player has",
+	    "  maxjobs - the number of jobs the player have max",
 	    "  joblevel - the level the player has attained in the job.",
 	    " NOTE: Please take care of the brackets when modifying this equation.");
 	cfg.get(pt + ".leveling-progression-equation", "10*(joblevel)+(joblevel*joblevel*4)");
@@ -133,6 +152,7 @@ public class ConfigManager {
 	cfg.addComment(pt + ".income-progression-equation", "Equation used for calculating how much income is given per action for the job level.",
 	    "Available parameters:",
 	    "  numjobs - the number of jobs the player has",
+	    "  maxjobs - the number of jobs the player have max",
 	    "  baseincome - the income for the action at level 1 (as set in the configuration).",
 	    "  joblevel - the level the player has attained in the job.",
 	    "NOTE: Please take care of the brackets when modifying this equation.");
@@ -141,6 +161,7 @@ public class ConfigManager {
 	cfg.addComment(pt + ".points-progression-equation", "Equation used for calculating how much points is given per action for the job level.",
 	    "Available parameters:",
 	    "  numjobs - the number of jobs the player has",
+	    "  maxjobs - the number of jobs the player have max",
 	    "  basepoints - the points for the action at level 1 (as set in the configuration).",
 	    "  joblevel - the level the player has attained in the job.",
 	    "NOTE: Please take care of the brackets when modifying this equation.");
@@ -149,6 +170,7 @@ public class ConfigManager {
 	cfg.addComment(pt + ".experience-progression-equation", "Equation used for calculating how much experience is given per action for the job level.",
 	    "Available parameters:",
 	    "  numjobs - the number of jobs the player has",
+	    "  maxjobs - the number of jobs the player have max",
 	    "  baseexperience - the experience for the action at level 1 (as set in the configuration).",
 	    "  joblevel - the level the player has attained in the job.",
 	    "NOTE: Please take care of the brackets when modifying this equation.");
@@ -186,7 +208,7 @@ public class ConfigManager {
 	    "[actionType] can be any valid job action. Look lower for all possible action types",
 	    "[actionTarget] can be material name, block type, entity name and so on. This is defined in same way as any generic payable job action",
 	    "[amount] is how many times player should perform this action to complete quest");
-	cfg.get(questPt + ".Objectives", "Break;17-0;300");
+	cfg.get(questPt + ".Objectives", "Break;oak_log;300");
 
 	cfg.addComment(questPt + ".RewardCommands", "Command list to be performed after quest is finished.",
 	    "Use [playerName] to insert players name who finished that quest");
@@ -228,11 +250,9 @@ public class ConfigManager {
 	    "For kill tags (Kill and custom-kill), the name is the name of the mob.",
 	    "To get a list of all available entity types, check the",
 	    "bukkit JavaDocs for a complete list of entity types",
-	    "https://minecraft.gamepedia.com/Mob#List_of_mobs",
+	    "https://hub.spigotmc.org/javadocs/spigot/org/bukkit/entity/EntityType.html",
 	    "",
-	    "NOTE: mob names are case sensitive.",
-	    "",
-	    "For custom-kill, it is the name of the job (also case sensitive).",
+	    "For custom-kill, it is the name of the job (case sensitive).",
 	    "",
 	    "NOTE: If a job has both the pay for killing a player and for killing a specific class, they will get both payments.",
 	    "#######################################################################",
@@ -269,84 +289,39 @@ public class ConfigManager {
 	cfg.save();
     }
 
-    public void reload() {
-	// job settings
-	try {
-	    loadJobSettings();
-	} catch (IOException e) {
-	    e.printStackTrace();
-	}
+    /**
+     * Returns all of existing jobs files in Jobs/jobs folder
+     * 
+     * @return {@link HashSet}
+     */
+    public Set<YmlMaker> getJobFiles() {
+	return jobFiles;
     }
 
+    @Deprecated
     public YamlConfiguration getJobConfig() {
-	if (!jobFile.exists()) {
-	    Jobs.getPluginLogger().severe("Unable to load jobConfig.yml!");
-	    return null;
-	}
-
-	return YamlConfiguration.loadConfiguration(jobFile);
+	return !jobFile.exists() ? null : YamlConfiguration.loadConfiguration(jobFile);
     }
 
+    @Deprecated
     public File getJobFile() {
 	return jobFile;
     }
 
-    public void changeJobsSettings(String path, Object value) {
-	InputStreamReader s = null;
-	try {
-	    s = new InputStreamReader(new FileInputStream(jobFile), StandardCharsets.UTF_8);
-	} catch (FileNotFoundException e1) {
-	    e1.printStackTrace();
-	}
-
-	if (!jobFile.exists()) {
-	    try {
-		jobFile.createNewFile();
-	    } catch (IOException e) {
-		Jobs.getPluginLogger().severe("Unable to create jobConfig.yml! No jobs were loaded!");
-		try {
-		    if (s != null)
-			s.close();
-		} catch (IOException e1) {
-		    e1.printStackTrace();
-		}
-		return;
+    public void changeJobsSettings(String jobName, String path, Object value) {
+	path = path.replace('/', '.');
+	for (YmlMaker yml : jobFiles) {
+	    if (yml.getConfigFile().getName().contains(jobName.toLowerCase())) {
+		yml.getConfig().set(path, value);
+		yml.saveConfig();
+		break;
 	    }
-	}
-	YamlConfiguration conf = new YamlConfiguration();
-	conf.options().pathSeparator('/');
-	try {
-	    conf.load(s);
-	} catch (Exception e) {
-	    Jobs.getPluginLogger().severe("==================== Jobs ====================");
-	    Jobs.getPluginLogger().severe("Unable to load jobConfig.yml!");
-	    Jobs.getPluginLogger().severe("Check your config for formatting issues!");
-	    Jobs.getPluginLogger().severe("No jobs were loaded!");
-	    Jobs.getPluginLogger().severe("Error: " + e.getMessage());
-	    Jobs.getPluginLogger().severe("==============================================");
-	    return;
-	} finally {
-	    if (s != null)
-		try {
-		    s.close();
-		} catch (IOException e) {
-		    e.printStackTrace();
-		}
-	}
-
-	conf.set(path, value);
-
-	try {
-	    conf.save(jobFile);
-	} catch (IOException e) {
-	    e.printStackTrace();
 	}
     }
 
     public class KeyValues {
-	private String type = null;
-	private String subType = "";
-	private String meta = "";
+
+	private String type, subType = "", meta = "";
 	private int id = 0;
 
 	public String getType() {
@@ -393,7 +368,7 @@ public class ConfigManager {
 	if (myKey.contains("-")) {
 	    // uses subType
 	    String[] split = myKey.split("-");
-	    if (split.length == 2) {
+	    if (split.length >= 2) {
 		subType = ":" + split[1];
 		meta = split[1];
 		myKey = split[0];
@@ -591,7 +566,7 @@ public class ConfigManager {
 
 	    type = enchant == null ? myKey : enchant.toString();
 	} else if (actionType == ActionType.CUSTOMKILL || actionType == ActionType.COLLECT || actionType == ActionType.MMKILL
-	    || actionType == ActionType.BAKE) {
+	    || actionType == ActionType.BAKE || actionType == ActionType.SMELT) {
 	    type = myKey;
 	} else if (actionType == ActionType.EXPLORE) {
 	    type = myKey;
@@ -648,75 +623,135 @@ public class ConfigManager {
 	return kv;
     }
 
-    /**
-     * Method to load the jobs configuration
-     * 
-     * loads from Jobs/jobConfig.yml
-     * @throws IOException 
-     */
-    private void loadJobSettings() throws IOException {
-	if (!jobFile.exists()) {
-	    YmlMaker jobConfig = new YmlMaker(Jobs.getInstance(), "jobConfig.yml");
-	    jobConfig.saveDefaultConfig();
+    private boolean migrateJobs() {
+	YamlConfiguration oldConf = getJobConfig();
+	if (oldConf == null) {
+	    if (!jobsPathFolder.exists()) {
+		jobsPathFolder.mkdirs();
+	    }
+
+	    if (jobsPathFolder.isDirectory() && jobsPathFolder.listFiles().length == 0)
+		try {
+		    for (String f : Util.getFilesFromPackage("jobs", "", "yml")) {
+			Jobs.getInstance().saveResource("jobs" + File.separator + f + ".yml", false);
+		    }
+		} catch (Exception c) {
+		}
+
+	    return false;
 	}
 
-	InputStreamReader s = new InputStreamReader(new FileInputStream(jobFile), StandardCharsets.UTF_8);
-	java.util.logging.Logger log = Jobs.getPluginLogger();
+	if (!jobsPathFolder.isDirectory()) {
+	    jobsPathFolder.mkdirs();
+	}
 
-	if (!jobFile.exists()) {
-	    try {
-		jobFile.createNewFile();
-	    } catch (IOException e) {
-		log.severe("Unable to create jobConfig.yml! No jobs were loaded!");
-		s.close();
-		return;
+	ConfigurationSection jobsSection = oldConf.getConfigurationSection("Jobs");
+	if (jobsSection == null || jobsSection.getKeys(false).isEmpty()) {
+	    return false;
+	}
+
+	jobFiles.clear();
+
+	Jobs.getPluginLogger().info("Started migrating jobConfig to /jobs folder...");
+
+	for (String jobKey : jobsSection.getKeys(false)) {
+
+	    String fileName = jobKey.equalsIgnoreCase(EXAMPLEJOBNAME) ? jobKey.toUpperCase() : jobKey.toLowerCase();
+
+	    YmlMaker newJobFile = new YmlMaker(jobsPathFolder, fileName + ".yml");
+	    if (!newJobFile.exists()) {
+		newJobFile.createNewFile();
+	    }
+
+	    FileConfiguration conf = newJobFile.getConfig();
+	    conf.options().pathSeparator(File.separatorChar);
+
+	    for (Map.Entry<String, Object> m : jobsSection.getValues(true).entrySet()) {
+		if (m.getKey().equalsIgnoreCase(jobKey)) {
+		    conf.set(m.getKey(), m.getValue());
+		}
+	    }
+
+	    newJobFile.saveConfig();
+
+	    if (!fileName.equalsIgnoreCase(EXAMPLEJOBNAME)) {
+		jobFiles.add(newJobFile);
 	    }
 	}
 
-	YamlConfiguration conf = new YamlConfiguration();
-	conf.options().pathSeparator('/');
-	try {
-	    conf.load(s);
-	} catch (Exception e) {
-	    log.severe("==================== Jobs ====================");
-	    log.severe("Unable to load jobConfig.yml!");
-	    log.severe("Check your config for formatting issues!");
-	    log.severe("No jobs were loaded!");
-	    log.severe("Error: " + e.getMessage());
-	    log.severe("==============================================");
-	    return;
-	} finally {
-	    s.close();
+	if (!jobFiles.isEmpty()) {
+	    Jobs.getPluginLogger().info("Done. Migrated jobs amount: " + jobFiles.size());
 	}
 
-	ConfigurationSection jobsSection = conf.getConfigurationSection("Jobs");
-	if (jobsSection == null) {
-	    log.severe("==================== Jobs ====================");
-	    log.severe("Jobs section not found in jobConfig file!");
-	    log.severe("Check the config for fix the issue.");
-	    log.severe("==============================================");
+	ConfigReader cfg = new ConfigReader("jobConfig.yml");
+	cfg.saveToBackup(false);
+	cfg.header(Arrays.asList("-----------------------------------------------------",
+	    "Jobs have been moved into jobs subfolder",
+	    "Old jobs content was saved into backup folder",
+	    "-----------------------------------------------------"));
+	cfg.save();
+
+	return true;
+    }
+
+    public void reload() {
+	jobFiles.clear();
+	migrateJobs();
+
+	updateExampleFile();
+
+	if (jobFiles.isEmpty()) {
+	    File[] files = jobsPathFolder.listFiles((dir, name) -> name.toLowerCase().endsWith(".yml")
+		&& !name.toLowerCase().equalsIgnoreCase(EXAMPLEJOBNAME + ".yml"));
+	    if (files != null) {
+		for (File file : files) {
+		    jobFiles.add(new YmlMaker(jobsPathFolder, file));
+		}
+	    }
+	}
+
+	if (jobFiles.isEmpty()) {
 	    return;
 	}
 
-	ArrayList<Job> jobs = new ArrayList<>();
+	List<Job> jobs = new ArrayList<>();
+	for (YmlMaker conf : jobFiles) {
+	    Job job = loadJobs(conf.getConfig().getConfigurationSection(""));
+	    if (job != null) {
+		jobs.add(job);
+	    }
+	}
+
+	Jobs.setJobs(jobs);
+
+	if (!jobs.isEmpty()) {
+	    Jobs.consoleMsg("&e[Jobs] Loaded " + jobs.size() + " jobs!");
+	}
+
+	ItemBoostManager.load();
+    }
+
+    private Job loadJobs(ConfigurationSection jobsSection) {
+	java.util.logging.Logger log = Jobs.getPluginLogger();
 
 	for (String jobKey : jobsSection.getKeys(false)) {
-	    // Ignoring example job
-	    if (jobKey.equalsIgnoreCase("exampleJob"))
+	    // Ignore example job
+	    if (jobKey.equalsIgnoreCase(EXAMPLEJOBINTERNALNAME)) {
 		continue;
+	    }
 
 	    // Translating unicode
 	    jobKey = StringEscapeUtils.unescapeJava(jobKey);
 
 	    ConfigurationSection jobSection = jobsSection.getConfigurationSection(jobKey);
-	    String jobFullName = jobSection.getString("fullname", null);
-
-	    // Translating unicode
-	    jobFullName = StringEscapeUtils.unescapeJava(jobFullName);
+	    String jobFullName = jobSection.getString("fullname");
 	    if (jobFullName == null) {
 		log.warning("Job " + jobKey + " has an invalid fullname property. Skipping job!");
 		continue;
 	    }
+
+	    // Translating unicode
+	    jobFullName = StringEscapeUtils.unescapeJava(jobFullName);
 
 	    int maxLevel = jobSection.getInt("max-level", 0);
 	    if (maxLevel < 0)
@@ -731,11 +766,13 @@ public class ConfigManager {
 		maxSlots = null;
 
 	    Long rejoinCd = jobSection.getLong("rejoinCooldown", 0L);
-	    if (rejoinCd < 0L)
+	    if (rejoinCd < 0L) {
 		rejoinCd = 0L;
-	    rejoinCd = rejoinCd * 1000L;
+	    } else {
+		rejoinCd *= 1000L;
+	    }
 
-	    String jobShortName = jobSection.getString("shortname", null);
+	    String jobShortName = jobSection.getString("shortname");
 	    if (jobShortName == null) {
 		log.warning("Job " + jobKey + " is missing the shortname property. Skipping job!");
 		continue;
@@ -789,9 +826,9 @@ public class ConfigManager {
 		maxExpEquation = new Parser(maxExpEquationInput);
 		// test equation
 		maxExpEquation.setVariable("numjobs", 1);
+		maxExpEquation.setVariable("maxjobs", 2);
 		maxExpEquation.setVariable("joblevel", 1);
-		maxExpEquation.getValue();
-	    } catch (Throwable e) {
+	    } catch (ParseError e) {
 		log.warning("Job " + jobKey + " has an invalid leveling-progression-equation property. Skipping job!");
 		continue;
 	    }
@@ -803,10 +840,10 @@ public class ConfigManager {
 		    incomeEquation = new Parser(incomeEquationInput);
 		    // test equation
 		    incomeEquation.setVariable("numjobs", 1);
+		    incomeEquation.setVariable("maxjobs", 2);
 		    incomeEquation.setVariable("joblevel", 1);
 		    incomeEquation.setVariable("baseincome", 1);
-		    incomeEquation.getValue();
-		} catch (Throwable e) {
+		} catch (ParseError e) {
 		    log.warning("Job " + jobKey + " has an invalid income-progression-equation property. Skipping job!");
 		    continue;
 		}
@@ -818,10 +855,10 @@ public class ConfigManager {
 		expEquation = new Parser(expEquationInput);
 		// test equation
 		expEquation.setVariable("numjobs", 1);
+		expEquation.setVariable("maxjobs", 2);
 		expEquation.setVariable("joblevel", 1);
 		expEquation.setVariable("baseexperience", 1);
-		expEquation.getValue();
-	    } catch (Throwable e) {
+	    } catch (ParseError e) {
 		log.warning("Job " + jobKey + " has an invalid experience-progression-equation property. Skipping job!");
 		continue;
 	    }
@@ -833,10 +870,10 @@ public class ConfigManager {
 		    pointsEquation = new Parser(pointsEquationInput);
 		    // test equation
 		    pointsEquation.setVariable("numjobs", 1);
+		    pointsEquation.setVariable("maxjobs", 2);
 		    pointsEquation.setVariable("joblevel", 1);
 		    pointsEquation.setVariable("basepoints", 1);
-		    pointsEquation.getValue();
-		} catch (Throwable e) {
+		} catch (ParseError e) {
 		    log.warning("Job " + jobKey + " has an invalid points-progression-equation property. Skipping job!");
 		    continue;
 		}
@@ -844,20 +881,20 @@ public class ConfigManager {
 
 	    // Gui item
 	    int guiSlot = -1;
-	    ItemStack GUIitem = CMIMaterial.GREEN_WOOL.newItemStack();
+	    ItemStack guiItem = CMIMaterial.GREEN_WOOL.newItemStack();
 	    if (jobSection.contains("Gui")) {
 		ConfigurationSection guiSection = jobSection.getConfigurationSection("Gui");
-		if (guiSection.contains("Item") && guiSection.isString("Item")) {
+		if (guiSection.isString("Item")) {
 		    String item = guiSection.getString("Item");
 		    String subType = "";
 
-			if (item.contains("-")) {
-			    // uses subType
-			    subType = ":" + item.split("-")[1];
-			    item = item.split("-")[0];
-			} else if (item.contains(":")) { // when we uses tipped arrow effect types
-			    item = item.split(":")[0];
-			}
+		    if (item.contains("-")) {
+			// uses subType
+			subType = ":" + item.split("-")[1];
+			item = item.split("-")[0];
+		    } else if (item.contains(":")) { // when we uses tipped arrow effect types
+			item = item.split(":")[0];
+		    }
 
 		    CMIMaterial material = CMIMaterial.get(item + (subType));
 
@@ -881,26 +918,24 @@ public class ConfigManager {
 		    }
 
 		    if (material != null)
-			GUIitem = material.newItemStack();
+			guiItem = material.newItemStack();
 		} else if (guiSection.isInt("Id") && guiSection.isInt("Data")) {
-		    GUIitem = CMIMaterial.get(guiSection.getInt("Id"), guiSection.getInt("Data")).newItemStack();
+		    guiItem = CMIMaterial.get(guiSection.getInt("Id"), guiSection.getInt("Data")).newItemStack();
 		} else
 		    log.warning("Job " + jobKey + " has an invalid Gui property. Please fix this if you want to use it!");
 
-		if (guiSection.isList("Enchantments")) {
-		    for (String str4 : guiSection.getStringList("Enchantments")) {
-			String[] id = str4.split(":");
-			if (GUIitem.getItemMeta() instanceof EnchantmentStorageMeta) {
-			    EnchantmentStorageMeta enchantMeta = (EnchantmentStorageMeta) GUIitem.getItemMeta();
-			    enchantMeta.addStoredEnchant(CMIEnchantment.getEnchantment(id[0]), Integer.parseInt(id[1]), true);
-			    GUIitem.setItemMeta(enchantMeta);
-			} else
-			    GUIitem.addUnsafeEnchantment(CMIEnchantment.getEnchantment(id[0]), Integer.parseInt(id[1]));
-		    }
+		for (String str4 : guiSection.getStringList("Enchantments")) {
+		    String[] id = str4.split(":");
+		    if (guiItem.getItemMeta() instanceof EnchantmentStorageMeta) {
+			EnchantmentStorageMeta enchantMeta = (EnchantmentStorageMeta) guiItem.getItemMeta();
+			enchantMeta.addStoredEnchant(CMIEnchantment.getEnchantment(id[0]), Integer.parseInt(id[1]), true);
+			guiItem.setItemMeta(enchantMeta);
+		    } else
+			guiItem.addUnsafeEnchantment(CMIEnchantment.getEnchantment(id[0]), Integer.parseInt(id[1]));
 		}
 
 		if (guiSection.isString("CustomSkull")) {
-		    GUIitem = Util.getSkull(guiSection.getString("CustomSkull"));
+		    guiItem = Util.getSkull(guiSection.getString("CustomSkull"));
 		}
 
 		if (guiSection.getInt("slot", -1) >= 0)
@@ -947,16 +982,6 @@ public class ConfigManager {
 		}
 	    }
 
-	    // Command on leave
-	    List<String> JobsCommandOnLeave = new ArrayList<>();
-	    if (jobSection.isList("cmd-on-leave"))
-		JobsCommandOnLeave = jobSection.getStringList("cmd-on-leave");
-
-	    // Command on join
-	    List<String> JobsCommandOnJoin = new ArrayList<>();
-	    if (jobSection.isList("cmd-on-join"))
-		JobsCommandOnJoin = jobSection.getStringList("cmd-on-join");
-
 	    // Commands
 	    ArrayList<JobCommands> jobCommand = new ArrayList<>();
 	    ConfigurationSection commandsSection = jobSection.getConfigurationSection("commands");
@@ -965,7 +990,7 @@ public class ConfigManager {
 		    ConfigurationSection commandSection = commandsSection.getConfigurationSection(commandKey);
 
 		    if (commandSection == null) {
-			log.warning("Job " + jobKey + " has an invalid command key" + commandKey + "!");
+			log.warning("Job " + jobKey + " has an invalid command key " + commandKey + "!");
 			continue;
 		    }
 
@@ -979,12 +1004,6 @@ public class ConfigManager {
 		    int levelUntil = commandSection.getInt("levelUntil", maxLevel);
 		    jobCommand.add(new JobCommands(commandKey.toLowerCase(), commands, levelFrom, levelUntil));
 		}
-	    }
-
-	    // Commands
-	    List<String> worldBlacklist = new ArrayList<>();
-	    if (jobSection.isList("world-blacklist")) {
-		worldBlacklist = jobSection.getStringList("world-blacklist");
 	    }
 
 	    // Items **OUTDATED** Moved to ItemBoostManager!!
@@ -1046,10 +1065,10 @@ public class ConfigManager {
 
 	    // Limited Items
 	    HashMap<String, JobLimitedItems> jobLimitedItems = new HashMap<>();
-	    ConfigurationSection LimitedItemsSection = jobSection.getConfigurationSection("limitedItems");
-	    if (LimitedItemsSection != null) {
-		for (String itemKey : LimitedItemsSection.getKeys(false)) {
-		    ConfigurationSection itemSection = LimitedItemsSection.getConfigurationSection(itemKey);
+	    ConfigurationSection limitedItemsSection = jobSection.getConfigurationSection("limitedItems");
+	    if (limitedItemsSection != null) {
+		for (String itemKey : limitedItemsSection.getKeys(false)) {
+		    ConfigurationSection itemSection = limitedItemsSection.getConfigurationSection(itemKey);
 		    if (itemSection == null) {
 			log.warning("Job " + jobKey + " has an invalid item key " + itemKey + "!");
 			continue;
@@ -1057,9 +1076,7 @@ public class ConfigManager {
 
 		    int id = itemSection.getInt("id");
 
-		    String name = null;
-		    if (itemSection.isString("name"))
-			name = itemSection.getString("name");
+		    String name = itemSection.getString("name");
 
 		    List<String> lore = new ArrayList<>();
 		    if (itemSection.isList("lore"))
@@ -1090,7 +1107,9 @@ public class ConfigManager {
 	    }
 
 	    Job job = new Job(jobKey, jobFullName, jobShortName, description, color, maxExpEquation, displayMethod, maxLevel, vipmaxLevel, maxSlots, jobPermissions, jobCommand,
-		jobConditions, jobItems, jobLimitedItems, JobsCommandOnJoin, JobsCommandOnLeave, GUIitem, guiSlot, bossbar, rejoinCd, worldBlacklist);
+		jobConditions, jobItems, jobLimitedItems, jobSection.getStringList("cmd-on-join"),
+		jobSection.getStringList("cmd-on-leave"), guiItem, guiSlot, bossbar, rejoinCd,
+		jobSection.getStringList("world-blacklist"));
 
 	    job.setFullDescription(fDescription);
 	    job.setMoneyEquation(incomeEquation);
@@ -1136,7 +1155,7 @@ public class ConfigManager {
 				    String[] co = mats.split(",");
 
 				    int amount = 1;
-				    if (split.length == 3) {
+				    if (split.length <= 3) {
 					amount = Integer.parseInt(split[2]);
 				    }
 
@@ -1171,8 +1190,7 @@ public class ConfigManager {
 			    desc = sqsection.getStringList("RewardDesc"),
 			    areas = sqsection.getStringList("RestrictedAreas");
 
-			if (sqsection.isInt("fromLevel"))
-			    quest.setMinLvl(sqsection.getInt("fromLevel"));
+			quest.setMinLvl(sqsection.getInt("fromLevel"));
 
 			if (sqsection.isInt("toLevel"))
 			    quest.setMaxLvl(sqsection.getInt("toLevel"));
@@ -1208,6 +1226,53 @@ public class ConfigManager {
 		ConfigurationSection typeSection = jobSection.getConfigurationSection(actionType.getName());
 		ArrayList<JobInfo> jobInfo = new ArrayList<>();
 		if (typeSection != null) {
+		    if (typeSection.isList("materials")) {
+			for (String mat : typeSection.getStringList("materials")) {
+			    if (!mat.contains(";")) {
+				continue;
+			    }
+
+			    KeyValues keyValue = null;
+			    String[] sep = mat.split(";");
+			    if (sep.length >= 1) {
+				keyValue = getKeyValue(sep[0], actionType, jobKey);
+			    }
+
+			    if (keyValue == null) {
+				continue;
+			    }
+
+			    int id = keyValue.getId();
+			    String type = keyValue.getType(),
+				subType = keyValue.getSubType(),
+				meta = keyValue.getMeta();
+
+			    double income = 0D;
+			    if (sep.length >= 2) {
+				income = Double.parseDouble(sep[1]);
+				income = updateValue(CurrencyType.MONEY, income);
+			    }
+
+			    double points = 0D;
+			    if (sep.length >= 3) {
+				points = Double.parseDouble(sep[2]);
+				points = updateValue(CurrencyType.POINTS, points);
+			    }
+
+			    double experience = 0D;
+			    if (sep.length >= 4) {
+				experience = Double.parseDouble(sep[3]);
+				experience = updateValue(CurrencyType.EXP, experience);
+			    }
+
+			    jobInfo.add(new JobInfo(actionType, id, meta, type + subType, income, incomeEquation, experience, expEquation, pointsEquation, points, 1,
+				-1, typeSection.getCurrentPath(), null, null, null));
+			}
+
+			job.setJobInfo(actionType, jobInfo);
+			continue;
+		    }
+
 		    for (String key : typeSection.getKeys(false)) {
 			ConfigurationSection section = typeSection.getConfigurationSection(key);
 			if (section == null) {
@@ -1231,7 +1296,6 @@ public class ConfigManager {
 			experience = updateValue(CurrencyType.EXP, experience);
 
 			int fromlevel = 1;
-
 			if (section.isInt("from-level"))
 			    fromlevel = section.getInt("from-level");
 
@@ -1264,20 +1328,12 @@ public class ConfigManager {
 
 	    if (jobKey.equalsIgnoreCase("none"))
 		Jobs.setNoneJob(job);
-	    else
-		jobs.add(job);
+	    else {
+		return job;
+	    }
 	}
 
-	Jobs.setJobs(jobs);
-
-	Jobs.consoleMsg("&e[Jobs] Loaded " + jobs.size() + " jobs!");
-	if (!Jobs.getExplore().isExploreEnabled())
-	    Jobs.consoleMsg("&6[Jobs] Explorer jobs manager are not enabled!");
-	else
-	    Jobs.consoleMsg("&e[Jobs] Explorer job manager registered!");
-
-	// Lets load item boosts
-	ItemBoostManager.load();
+	return null;
     }
 
     private double updateValue(CurrencyType type, double amount) {

@@ -4,8 +4,10 @@ import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.EntityType;
 
 import com.gamingmesh.jobs.Jobs;
 import com.gamingmesh.jobs.CMILib.CMIEnchantment;
@@ -156,7 +158,7 @@ public class NameTranslatorManager {
     }
 
     public void readFile() {
-	YmlMaker ItemFile = new YmlMaker(Jobs.getInstance(), "TranslatableWords" + File.separator + "Words_"
+	YmlMaker ItemFile = new YmlMaker(Jobs.getFolder(), "TranslatableWords" + File.separator + "Words_"
 	    + Jobs.getGCManager().localeString + ".yml");
 	if (!ItemFile.getConfigFile().getName().equalsIgnoreCase("en")) {
 	    ItemFile.saveDefaultConfig();
@@ -240,7 +242,7 @@ public class NameTranslatorManager {
     }
 
     @SuppressWarnings("deprecation")
-    synchronized void load() {
+    void load() {
 	String ls = Jobs.getGCManager().localeString;
 	if (ls.isEmpty())
 	    return;
@@ -266,7 +268,7 @@ public class NameTranslatorManager {
 	}
 	for (Iterator<String> e1 = languages.iterator(); e1.hasNext();) {
 	    String lang = e1.next();
-	    YmlMaker langFile = new YmlMaker(Jobs.getInstance(), "TranslatableWords" + File.separator + "Words_" + lang + ".yml");
+	    YmlMaker langFile = new YmlMaker(Jobs.getFolder(), "TranslatableWords" + File.separator + "Words_" + lang + ".yml");
 	    langFile.saveDefaultConfig();
 	}
 	//Up to here.
@@ -285,27 +287,20 @@ public class NameTranslatorManager {
 		f.delete();
 		f = new File(tWordsFolder, "Words_" + lang + ".yml");
 	    }
-	    ConfigReader c = null;
-	    try {
-		c = new ConfigReader(f);
-	    } catch (Throwable e) {
-		e.printStackTrace();
-	    }
-	    if (c == null)
-		continue;
 
+	    ConfigReader c = new ConfigReader(f);
 	    c.copyDefaults(true);
 
-	    for (CMIMaterial one : CMIMaterial.values()) {
-		if (one.getMaterial() == null)
+	    for (Material one : Material.values()) {
+		CMIMaterial mat = CMIMaterial.get(one);
+		if (mat == null || mat.getMaterial() == null)
 		    continue;
 
-		String n = one.getLegacyId() + (one.getLegacyData() == -1 ? "" : ":" + one.getLegacyData());
-
+		String n = mat.getLegacyId() + (mat.getLegacyData() == -1 ? "" : ":" + mat.getLegacyData());
 		String name = null;
 
-		if (c.getC().isString("ItemList." + one.toString())) {
-		    name = c.getC().getString("ItemList." + one.toString());
+		if (c.getC().isString("ItemList." + mat.toString())) {
+		    name = c.getC().getString("ItemList." + mat.toString());
 		}
 
 		if (name == null && c.getC().isConfigurationSection("ItemList." + n)) {
@@ -313,59 +308,60 @@ public class NameTranslatorManager {
 		}
 
 		if (name == null) {
-		    n = one.getLegacyId() + ":" + one.getLegacyData();
+		    n = mat.getLegacyId() + ":" + mat.getLegacyData();
 		    if (c.getC().isConfigurationSection("ItemList." + n)) {
 			name = c.getC().getString("ItemList." + n + ".Name");
 		    }
 		}
 
 		if (name == null) {
-		    n = String.valueOf(one.getLegacyId());
+		    n = String.valueOf(mat.getLegacyId());
 		    if (c.getC().isConfigurationSection("ItemList." + n)) {
 			name = c.getC().getString("ItemList." + n + ".Name");
 		    }
 		}
 
 		if (name == null) {
-		    n = String.valueOf(one.getId());
+		    n = String.valueOf(mat.getId());
 		    if (c.getC().isConfigurationSection("ItemList." + n)) {
 			name = c.getC().getString("ItemList." + n + ".Name");
 		    }
 		}
 
 		if (name == null) {
-		    n = one.getLegacyId() + ":" + one.getLegacyData() + "-" + one.getBukkitName();
+		    n = mat.getLegacyId() + ":" + mat.getLegacyData() + "-" + mat.getBukkitName();
 		    if (c.getC().isString("ItemList." + n)) {
 			name = c.getC().getString("ItemList." + n);
 		    }
 		}
 
 		if (name == null) {
-		    n = String.valueOf(one.getLegacyId()) + "-" + one.getBukkitName();
+		    n = String.valueOf(mat.getLegacyId()) + "-" + mat.getBukkitName();
 		    if (c.getC().isString("ItemList." + n)) {
 			name = c.getC().getString("ItemList." + n);
 		    }
 		}
 
 		if (name == null) {
-		    n = String.valueOf(one.getId()) + "-" + one.getBukkitName();
+		    n = String.valueOf(mat.getId()) + "-" + mat.getBukkitName();
 		    if (c.getC().isString("ItemList." + n)) {
 			name = c.getC().getString("ItemList." + n);
 		    }
 		}
 
 		if (name == null) {
-		    name = one.getName();
+		    name = mat.getName();
 		}
 
-		c.get("ItemList." + one.toString(), name);
+		c.get("ItemList." + mat.toString(), name);
 	    }
 
-	    for (CMIEntityType one : CMIEntityType.values()) {
-		if (!one.isAlive())
+	    for (EntityType one : EntityType.values()) {
+		CMIEntityType ent = CMIEntityType.getByType(one);
+		if (ent == null || !ent.isAlive())
 		    continue;
 
-		String n = String.valueOf(one.getId());
+		String n = String.valueOf(ent.getId());
 
 		String name = null;
 
@@ -374,21 +370,21 @@ public class NameTranslatorManager {
 		}
 
 		if (name == null) {
-		    n = n + "-" + one.toString();
+		    n += "-" + ent.toString();
 		    if (c.getC().isConfigurationSection("EntityList." + n)) {
 			name = c.getC().getString("EntityList." + n);
 		    }
 		}
 
 		if (name == null) {
-		    name = one.getName();
+		    name = ent.getName();
 		}
 
-		c.get("EntityList." + one.getId() + "-" + one.toString(), name);
+		c.get("EntityList." + ent.getId() + "-" + ent.toString(), name);
 	    }
 
 	    for (Enchantment one : Enchantment.values()) {
-		if (one == null || CMIEnchantment.getName(one) == null)
+		if (CMIEnchantment.getName(one) == null)
 		    continue;
 
 		String name = Util.firstToUpperCase(CMIEnchantment.getName(one)).replace('_', ' ');

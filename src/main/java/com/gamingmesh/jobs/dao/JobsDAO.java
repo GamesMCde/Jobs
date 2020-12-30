@@ -73,7 +73,7 @@ public abstract class JobsDAO {
 
 	@Override
 	public String getCollumn() {
-	    return this.name();
+	    return name();
 	}
 
 	@Override
@@ -105,7 +105,7 @@ public abstract class JobsDAO {
 
 	@Override
 	public String getCollumn() {
-	    return this.name();
+	    return name();
 	}
 
 	@Override
@@ -134,7 +134,7 @@ public abstract class JobsDAO {
 
 	@Override
 	public String getCollumn() {
-	    return this.name();
+	    return name();
 	}
 
 	@Override
@@ -163,7 +163,7 @@ public abstract class JobsDAO {
 
 	@Override
 	public String getCollumn() {
-	    return this.name();
+	    return name();
 	}
 
 	@Override
@@ -193,7 +193,7 @@ public abstract class JobsDAO {
 
 	@Override
 	public String getCollumn() {
-	    return this.name();
+	    return name();
 	}
 
 	@Override
@@ -224,7 +224,7 @@ public abstract class JobsDAO {
 
 	@Override
 	public String getCollumn() {
-	    return this.name();
+	    return name();
 	}
 
 	@Override
@@ -253,7 +253,7 @@ public abstract class JobsDAO {
 
 	@Override
 	public String getCollumn() {
-	    return this.name();
+	    return name();
 	}
 
 	@Override
@@ -285,7 +285,7 @@ public abstract class JobsDAO {
 
 	@Override
 	public String getCollumn() {
-	    return this.name();
+	    return name();
 	}
 
 	@Override
@@ -312,7 +312,7 @@ public abstract class JobsDAO {
 
 	@Override
 	public String getCollumn() {
-	    return this.name();
+	    return name();
 	}
 
 	@Override
@@ -342,7 +342,7 @@ public abstract class JobsDAO {
 
 	@Override
 	public String getCollumn() {
-	    return this.name();
+	    return name();
 	}
 
 	@Override
@@ -403,9 +403,9 @@ public abstract class JobsDAO {
 	private String getQR() {
 	    switch (dbType) {
 	    case MySQL:
-		return this.mySQL.replace("[tableName]", prefix + this.tableName);
+		return mySQL.replace("[tableName]", prefix + tableName);
 	    case SqLite:
-		return this.sQlite.replace("[tableName]", this.tableName);
+		return sQlite.replace("[tableName]", tableName);
 	    default:
 		break;
 	    }
@@ -415,7 +415,7 @@ public abstract class JobsDAO {
 	public String getQuery() {
 	    String rp = "";
 	    List<JobsTableInterface> uniques = new ArrayList<>();
-	    for (JobsTableInterface one : this.getInterface()) {
+	    for (JobsTableInterface one : getInterface()) {
 		if (one.isUnique()) {
 		    uniques.add(one);
 		}
@@ -449,7 +449,7 @@ public abstract class JobsDAO {
 	}
 
 	public JobsTableInterface[] getInterface() {
-	    return this.c;
+	    return c;
 	}
 
 	public String getTableName() {
@@ -536,10 +536,10 @@ public abstract class JobsDAO {
     }
 
     private boolean createDefaultTable(DBTables table) {
-	if (this.isTable(table.getTableName()))
+	if (isTable(table.getTableName()))
 	    return true;
 	try {
-	    this.createTable(table.getQuery());
+	    createTable(table.getQuery());
 	    return true;
 	} catch (SQLException e) {
 	    e.printStackTrace();
@@ -550,9 +550,9 @@ public abstract class JobsDAO {
     private boolean checkDefaultCollumns() {
 	for (DBTables one : DBTables.values()) {
 	    for (JobsTableInterface oneT : one.getInterface()) {
-		if (this.isCollumn(one.getTableName(), oneT.getCollumn()))
+		if (isCollumn(one.getTableName(), oneT.getCollumn()))
 		    continue;
-		this.addCollumn(one.getTableName(), oneT.getCollumn(), oneT.getType());
+		addCollumn(one.getTableName(), oneT.getCollumn(), oneT.getType());
 	    }
 	}
 
@@ -561,7 +561,7 @@ public abstract class JobsDAO {
 
     public void truncateAllTables() {
 	for (DBTables one : DBTables.values()) {
-	    this.truncate(one.getTableName());
+	    truncate(one.getTableName());
 	}
     }
 
@@ -703,6 +703,29 @@ public abstract class JobsDAO {
 	return map;
     }
 
+    public PlayerPoints getPlayerPoints(JobsPlayer player) {
+	PlayerPoints points = new PlayerPoints();
+	JobsConnection conn = getConnection();
+	if (conn == null)
+	    return points;
+	PreparedStatement prest = null;
+	ResultSet res = null;
+	try {
+	    prest = conn.prepareStatement("SELECT * FROM `" + DBTables.PointsTable.getTableName() + "` WHERE `" + PointsTableFields.userid.getCollumn() + "` = ?;");
+	    prest.setInt(1, player.getUserId());
+	    res = prest.executeQuery();
+	    while (res.next()) {
+		points = new PlayerPoints(res.getDouble(PointsTableFields.currentpoints.getCollumn()), res.getDouble(PointsTableFields.totalpoints.getCollumn()));
+	    }
+	} catch (SQLException e) {
+	    e.printStackTrace();
+	} finally {
+	    close(res);
+	    close(prest);
+	}
+	return points;
+    }
+
     public HashMap<Integer, ArchivedJobs> getAllArchivedJobs() {
 	HashMap<Integer, ArchivedJobs> map = new HashMap<>();
 	JobsConnection conn = getConnection();
@@ -750,6 +773,51 @@ public abstract class JobsDAO {
 	    close(prest);
 	}
 	return map;
+    }
+
+    public ArchivedJobs getArchivedJobs(JobsPlayer player) {
+	ArchivedJobs jobs = new ArchivedJobs();
+	JobsConnection conn = getConnection();
+	if (conn == null || player == null)
+	    return jobs;
+	PreparedStatement prest = null;
+	ResultSet res = null;
+	try {
+	    prest = conn.prepareStatement("SELECT * FROM `" + DBTables.ArchiveTable.getTableName() + "` WHERE `" + ArchiveTableFields.userid.getCollumn() + "` = ?;");
+	    prest.setInt(1, player.getUserId());
+	    res = prest.executeQuery();
+	    while (res.next()) {
+
+		String jobName = res.getString(ArchiveTableFields.job.getCollumn());
+		Double exp = res.getDouble(ArchiveTableFields.experience.getCollumn());
+		int lvl = res.getInt(ArchiveTableFields.level.getCollumn());
+		Long left = res.getLong(ArchiveTableFields.left.getCollumn());
+		int jobid = res.getInt(ArchiveTableFields.jobid.getCollumn());
+
+		Job job = null;
+		if (jobid != 0) {
+		    job = Jobs.getJob(jobid);
+		} else {
+		    job = Jobs.getJob(jobName);
+		    converted = false;
+		}
+
+		if (job == null)
+		    continue;
+
+		JobProgression jp = new JobProgression(job, player, lvl, exp);
+		if (left != 0L)
+		    jp.setLeftOn(left);
+		jobs.addArchivedJob(jp);
+	    }
+	} catch (Exception e) {
+	    close(res);
+	    close(prest);
+	} finally {
+	    close(res);
+	    close(prest);
+	}
+	return jobs;
     }
 
     public HashMap<Integer, HashMap<String, Log>> getAllLogs() {
@@ -870,11 +938,9 @@ public abstract class JobsDAO {
 	    prestt.execute();
 
 	    res2 = prestt.getGeneratedKeys();
-	    int id = 0;
-	    if (res2.next())
-		id = res2.getInt(1);
 
-	    Jobs.getPlayerManager().addPlayerToMap(new PlayerInfo(playerName, id, uuid, System.currentTimeMillis(), 0));
+	    Jobs.getPlayerManager().addPlayerToMap(new PlayerInfo(playerName, res2.next() ? res2.getInt(1) : 0,
+		uuid, System.currentTimeMillis(), 0));
 	} catch (SQLException e) {
 	    e.printStackTrace();
 	} finally {
@@ -896,12 +962,7 @@ public abstract class JobsDAO {
 	    prestt.executeUpdate();
 
 	    res2 = prestt.getGeneratedKeys();
-	    int id = 0;
-	    if (res2.next())
-		id = res2.getInt(1);
-
-	    Util.addJobsWorld(new JobsWorld(worldName, id));
-
+	    Util.addJobsWorld(new JobsWorld(worldName, res2.next() ? res2.getInt(1) : 0));
 	} catch (SQLException e) {
 	    e.printStackTrace();
 	} finally {
@@ -1130,7 +1191,7 @@ public abstract class JobsDAO {
 
 	    conn.commit();
 	} catch (SQLException e) {
-	    e.printStackTrace();
+//	    e.printStackTrace();
 	} finally {
 	    close(prestt);
 	    close(res2);
@@ -1320,16 +1381,10 @@ public abstract class JobsDAO {
 	    prest.setInt(1, jPlayer.getUserId());
 	    res = prest.executeQuery();
 	    while (res.next()) {
-
 		String typeName = res.getString(LimitTableFields.type.getCollumn());
 		int typeId = res.getInt(LimitTableFields.typeid.getCollumn());
 
-		CurrencyType type = null;
-		if (typeId != 0)
-		    type = CurrencyType.get(typeId);
-		else
-		    type = CurrencyType.getByName(typeName);
-
+		CurrencyType type = typeId != 0 ? CurrencyType.get(typeId) : CurrencyType.getByName(typeName);
 		if (type == null)
 		    continue;
 
@@ -1487,7 +1542,7 @@ public abstract class JobsDAO {
     }
 
     public void continueConvertions(List<Convert> list) throws SQLException {
-	JobsConnection conns = this.getConnection();
+	JobsConnection conns = getConnection();
 	if (conns == null)
 	    return;
 	PreparedStatement insert = null;
@@ -2246,8 +2301,10 @@ public abstract class JobsDAO {
 
 	try {
 	    Long mark = System.currentTimeMillis() - (Jobs.getGCManager().BlockProtectionDays * 24L * 60L * 60L * 1000L);
-	    prestDel = conn.prepareStatement("DELETE FROM `" + DBTables.BlocksTable.getTableName() + "` WHERE `" + BlockTableFields.recorded.getCollumn() + "` < ?;");
+	    prestDel = conn.prepareStatement("DELETE FROM `" + DBTables.BlocksTable.getTableName() + "` WHERE `" + BlockTableFields.recorded.getCollumn() + "` < ? OR `" +
+		BlockTableFields.resets.getCollumn() + "` < ? AND `" + BlockTableFields.resets.getCollumn() + "` > 0;");
 	    prestDel.setLong(1, mark);
+	    prestDel.setLong(2, System.currentTimeMillis());
 	    prestDel.execute();
 	} catch (SQLException e) {
 	    e.printStackTrace();

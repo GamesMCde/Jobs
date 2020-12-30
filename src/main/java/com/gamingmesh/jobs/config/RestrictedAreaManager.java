@@ -104,7 +104,7 @@ public class RestrictedAreaManager {
      * @param player
      * @return - the multiplier
      */
-    public synchronized double getRestrictedMultiplier(Player player) {
+    public double getRestrictedMultiplier(Player player) {
 	if (player == null)
 	    return 0D;
 	for (RestrictedArea area : getRestrictedAreasByLoc(player.getLocation())) {
@@ -116,7 +116,7 @@ public class RestrictedAreaManager {
 	return 0D;
     }
 
-    public synchronized List<RestrictedArea> getRestrictedAreasByLoc(Location loc) {
+    public List<RestrictedArea> getRestrictedAreasByLoc(Location loc) {
 	List<RestrictedArea> areas = new ArrayList<>();
 	for (RestrictedArea area : restrictedAreas.values()) {
 	    if (area.inRestrictedArea(loc))
@@ -129,7 +129,7 @@ public class RestrictedAreaManager {
 	return areas;
     }
 
-    public synchronized List<RestrictedArea> getRestrictedAreasByName(String name) {
+    public List<RestrictedArea> getRestrictedAreasByName(String name) {
 	List<RestrictedArea> areas = new ArrayList<>();
 	for (Entry<String, RestrictedArea> area : restrictedAreas.entrySet()) {
 	    if (area.getKey().equalsIgnoreCase(name))
@@ -179,7 +179,7 @@ public class RestrictedAreaManager {
      * 
      * loads from Jobs/restrictedAreas.yml
      */
-    public synchronized void load() {
+    public void load() {
 	restrictedAreas.clear();
 	File f = new File(Jobs.getFolder(), "restrictedAreas.yml");
 	YamlConfiguration conf = YamlConfiguration.loadConfiguration(f);

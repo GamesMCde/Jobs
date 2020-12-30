@@ -28,27 +28,19 @@ public class JobsSQLite extends JobsDAO {
 	super(plugin, "org.sqlite.JDBC", "jdbc:sqlite:" + new File(file, "jobs.sqlite.db").getPath(), null, null, "");
 	if (!file.exists())
 	    file.mkdirs();
-	this.setDbType(DataBaseType.SqLite);
+	setDbType(DataBaseType.SqLite);
     }
 
     @Override
-    protected synchronized void checkUpdate() throws SQLException {
+    protected void checkUpdate() throws SQLException {
 	JobsConnection conn = getConnection();
 	if (conn == null) {
-	    Jobs.consoleMsg("&cCould not run database updates!  Could not connect to MySQL!");
+	    Jobs.consoleMsg("&cCould not run database updates! Could not connect to MySQL!");
 	    return;
 	}
-	createDefaultUsersBase();
-    }
 
-    private boolean createDefaultUsersBase() {
-	try {
-	    executeSQL("CREATE TABLE `" + getPrefix()
+	executeSQL("CREATE TABLE `" + getPrefix()
 		+ "users` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `player_uuid` varchar(36) NOT NULL, `username` varchar(20), `data` text);");
-	} catch (SQLException e) {
-	    return false;
-	}
-	return true;
     }
 
     @Override
@@ -89,7 +81,7 @@ public class JobsSQLite extends JobsDAO {
     public boolean isTable(String table) {
 	DatabaseMetaData md = null;
 	try {
-	    md = this.getConnection().getMetaData();
+	    md = getConnection().getMetaData();
 	    ResultSet tables = md.getTables(null, null, table, null);
 	    if (tables.next()) {
 		tables.close();
@@ -107,7 +99,7 @@ public class JobsSQLite extends JobsDAO {
     public boolean isCollumn(String table, String collumn) {
 	DatabaseMetaData md = null;
 	try {
-	    md = this.getConnection().getMetaData();
+	    md = getConnection().getMetaData();
 	    ResultSet tables = md.getColumns(null, null, table, collumn);
 	    if (tables.next()) {
 		tables.close();
@@ -145,7 +137,7 @@ public class JobsSQLite extends JobsDAO {
 	Statement statement = null;
 	String query = null;
 	try {
-	    if (!this.isTable(table)) {
+	    if (!isTable(table)) {
 		Jobs.consoleMsg("&cTable \"" + table + "\" does not exist.");
 		return false;
 	    }
@@ -168,7 +160,7 @@ public class JobsSQLite extends JobsDAO {
 	Statement statement = null;
 	String query = null;
 	try {
-	    if (!this.isTable(table)) {
+	    if (!isTable(table)) {
 		Jobs.consoleMsg("&cTable \"" + table + "\" does not exist.");
 		return false;
 	    }

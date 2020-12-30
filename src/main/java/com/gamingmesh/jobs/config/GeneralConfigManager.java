@@ -92,13 +92,13 @@ public class GeneralConfigManager {
 	PreventSlimeSplit, PreventMagmaCubeSplit, PreventHopperFillUps, PreventBrewingStandFillUps,
 	BrowseUseNewLook, payExploringWhenGliding, disablePaymentIfMaxLevelReached, disablePaymentIfRiding,
 	boostedItemsInOffHand, preventCropResizePayment, payItemDurabilityLoss,
-	applyToNegativeIncome, useMinimumOveralPayment, useMinimumOveralPoints, useBreederFinder = false,
+	applyToNegativeIncome, useMinimumOveralPayment, useMinimumOveralPoints, useBreederFinder,
 	CancelCowMilking, fixAtMaxLevel, TitleChangeChat, TitleChangeActionBar, LevelChangeChat,
 	LevelChangeActionBar, SoundLevelupUse, SoundTitleChangeUse, UseServerAccount, EmptyServerAccountChat,
 	EmptyServerAccountActionBar, ActionBarsMessageByDefault, ShowTotalWorkers, ShowPenaltyBonus, useDynamicPayment,
 	JobsGUIOpenOnBrowse, JobsGUIShowChatBrowse, JobsGUISwitcheButtons, ShowActionNames,
 	DisableJoiningJobThroughGui, FireworkLevelupUse, UseRandom, UseFlicker, UseTrail, UsePerPermissionForLeaving,
-	EnableConfirmation, FilterHiddenPlayerFromTabComplete, jobsInfoOpensBrowse, MonsterDamageUse = false, useMaxPaymentCurve,
+	EnableConfirmation, FilterHiddenPlayerFromTabComplete, jobsInfoOpensBrowse, MonsterDamageUse, useMaxPaymentCurve,
 	hideJobsInfoWithoutPermission, UseTaxes, TransferToServerAccount, TakeFromPlayersPayment, AutoJobJoinUse, AllowDelevel,
 	BossBarEnabled, BossBarShowOnEachAction, BossBarsMessageByDefault, ExploreCompact, DBCleaningJobsUse, DBCleaningUsersUse,
 	DisabledWorldsUse, UseAsWhiteListWorldList, PaymentMethodsMoney, PaymentMethodsPoints, PaymentMethodsExp, MythicMobsEnabled,
@@ -129,7 +129,7 @@ public class GeneralConfigManager {
      * Get how often in minutes to save job information
      * @return how often in minutes to save job information
      */
-    public synchronized int getSavePeriod() {
+    public int getSavePeriod() {
 	return savePeriod;
     }
 
@@ -138,7 +138,7 @@ public class GeneralConfigManager {
      * @return true - use async
      * @return false - use sync
      */
-    public synchronized boolean isEconomyAsync() {
+    public boolean isEconomyAsync() {
 	return economyAsync;
     }
 
@@ -147,7 +147,7 @@ public class GeneralConfigManager {
      * @return true - broadcast on skill up
      * @return false - do not broadcast on skill up
      */
-    public synchronized boolean isBroadcastingSkillups() {
+    public boolean isBroadcastingSkillups() {
 	return isBroadcastingSkillups;
     }
 
@@ -156,7 +156,7 @@ public class GeneralConfigManager {
      * @return true - broadcast on level up
      * @return false - do not broadcast on level up
      */
-    public synchronized boolean isBroadcastingLevelups() {
+    public boolean isBroadcastingLevelups() {
 	return isBroadcastingLevelups;
     }
 
@@ -165,7 +165,7 @@ public class GeneralConfigManager {
      * @return true - pay in creative
      * @return false - do not pay in creative
      */
-    public synchronized boolean payInCreative() {
+    public boolean payInCreative() {
 	return payInCreative;
     }
 
@@ -174,11 +174,11 @@ public class GeneralConfigManager {
      * @return true - pay
      * @return false - do not
      */
-    public synchronized boolean payExploringWhenFlying() {
+    public boolean payExploringWhenFlying() {
 	return payExploringWhenFlying;
     }
 
-    public synchronized boolean addXpPlayer() {
+    public boolean addXpPlayer() {
 	return addXpPlayer;
     }
 
@@ -186,7 +186,7 @@ public class GeneralConfigManager {
      * Function to check if jobs should be hidden to players that lack permission to join the job
      * @return
      */
-    public synchronized boolean getHideJobsWithoutPermission() {
+    public boolean getHideJobsWithoutPermission() {
 	return hideJobsWithoutPermission;
     }
 
@@ -194,7 +194,7 @@ public class GeneralConfigManager {
      * Function to return the maximum number of jobs a player can join
      * @return
      */
-    public synchronized int getMaxJobs() {
+    public int getMaxJobs() {
 	return maxJobs;
     }
 
@@ -203,27 +203,27 @@ public class GeneralConfigManager {
      * @return true - you get paid
      * @return false - you don't get paid
      */
-    public synchronized boolean payNearSpawner() {
+    public boolean payNearSpawner() {
 	return payNearSpawner;
     }
 
-    public synchronized boolean getModifyChat() {
+    public boolean getModifyChat() {
 	return modifyChat;
     }
 
-    public synchronized int getEconomyBatchDelay() {
+    public int getEconomyBatchDelay() {
 	return economyBatchDelay;
     }
 
-    public synchronized boolean saveOnDisconnect() {
+    public boolean saveOnDisconnect() {
 	return saveOnDisconnect;
     }
 
-    public synchronized boolean MultiServerCompatability() {
+    public boolean MultiServerCompatability() {
 	return MultiServerCompatability;
     }
 
-    public synchronized Locale getLocale() {
+    public Locale getLocale() {
 	return locale;
     }
 
@@ -282,14 +282,8 @@ public class GeneralConfigManager {
      * 
      * loads from Jobs/generalConfig.yml
      */
-    private synchronized void loadGeneralSettings() {
-	try {
-	    c = new ConfigReader("generalConfig.yml");
-	} catch (Exception t) {
-	    t.printStackTrace();
-	}
-	if (c == null)
-	    return;
+    private void loadGeneralSettings() {
+	c = new ConfigReader("generalConfig.yml");
 
 	c.header(Arrays.asList("General configuration.",
 	    "  The general configuration for the jobs plugin mostly includes how often the plugin",
@@ -486,23 +480,27 @@ public class GeneralConfigManager {
 	    String mname = one.contains("=") ? one.split("=")[0] : one;
 	    String ench = one.contains("=") ? one.split("=")[1] : null;
 	    String value = ench != null && ench.contains("-") ? ench.split("-")[1] : null;
-	    ench = value != null && ench != null ? ench.substring(0, ench.length() - (value.length() + 1)) : ench;
+	    if (value != null && ench != null) {
+		ench = ench.substring(0, ench.length() - (value.length() + 1));
+	    }
+
 	    CMIMaterial mat = CMIMaterial.get(mname);
 	    if (mat == CMIMaterial.NONE) {
 		Jobs.consoleMsg("Failed to recognize " + one + " entry from config file");
 		continue;
 	    }
+
 	    Enchantment enchant = null;
 	    if (ench != null) {
 		enchant = CMIEnchantment.getEnchantment(ench);
 	    }
+
 	    Integer level = null;
-	    if (value != null) {
-		try {
-		    level = Integer.parseInt(value);
-		} catch (NumberFormatException e) {
-		}
+	    try {
+		level = Integer.parseInt(value);
+	    } catch (NumberFormatException e) {
 	    }
+
 	    HashMap<Enchantment, Integer> submap = new HashMap<>();
 	    if (enchant != null)
 		submap.put(enchant, level);
@@ -632,7 +630,6 @@ public class GeneralConfigManager {
 	try {
 	    Parser Equation = new Parser(MoneyLimit);
 	    Equation.setVariable("totallevel", 1);
-	    Equation.getValue();
 	    limit.setMaxEquation(Equation);
 	} catch (Throwable e) {
 	    Jobs.getPluginLogger().warning("MoneyLimit has an invalid value. Disabling money limit!");
@@ -666,7 +663,6 @@ public class GeneralConfigManager {
 	try {
 	    Parser Equation = new Parser(PointLimit);
 	    Equation.setVariable("totallevel", 1);
-	    Equation.getValue();
 	    limit.setMaxEquation(Equation);
 	} catch (Throwable e) {
 	    Jobs.getPluginLogger().warning("PointLimit has an invalid value. Disabling money limit!");
@@ -700,7 +696,6 @@ public class GeneralConfigManager {
 	try {
 	    Parser Equation = new Parser(expLimit);
 	    Equation.setVariable("totallevel", 1);
-	    Equation.getValue();
 	    limit.setMaxEquation(Equation);
 	} catch (Throwable e) {
 	    Jobs.getPluginLogger().warning("ExpLimit has an invalid value. Disabling money limit!");
@@ -834,7 +829,8 @@ public class GeneralConfigManager {
 	    "Only works when fix-at-max-level is set to false");
 	levelLossPercentageFromMax = c.get("old-job.level-loss-from-max-level", levelLossPercentage);
 
-	c.addComment("ActionBars.Messages.EnabledByDefault", "When this set to true player will see action bar messages by default");
+	c.addComment("ActionBars.Messages.EnabledByDefault", "When this set to true player will see action bar messages by default",
+	    "When false, players will see chat messages instead.");
 	ActionBarsMessageByDefault = c.get("ActionBars.Messages.EnabledByDefault", true);
 
 	if (Version.isCurrentEqualOrHigher(Version.v1_9_R1)) {

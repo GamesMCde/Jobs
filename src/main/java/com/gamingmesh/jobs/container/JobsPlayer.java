@@ -40,17 +40,20 @@ import com.gamingmesh.jobs.container.blockOwnerShip.BlockTypes;
 import com.gamingmesh.jobs.dao.JobsDAO;
 import com.gamingmesh.jobs.economy.PaymentData;
 import com.gamingmesh.jobs.resources.jfep.Parser;
-import com.gamingmesh.jobs.stuff.Debug;
 import com.gamingmesh.jobs.stuff.TimeManage;
 
 public class JobsPlayer {
-    // the player the object belongs to
-    private String userName = "Unknown";
-    // progression of the player in each job
-    public UUID playerUUID;
-    public final ArrayList<JobProgression> progression = new ArrayList<>();
-    private ArchivedJobs archivedJobs = new ArchivedJobs();
 
+    private String userName = "Unknown";
+
+    public UUID playerUUID;
+
+    // progression of the player in each job
+    public final ArrayList<JobProgression> progression = new ArrayList<>();
+
+    public int maxJobsEquation = 0;
+
+    private ArchivedJobs archivedJobs = new ArchivedJobs();
     private PaymentData paymentLimits;
 
     private final HashMap<String, ArrayList<BoostCounter>> boostCounter = new HashMap<>();
@@ -71,7 +74,6 @@ public class JobsPlayer {
     // save lock
 //    public final Object saveLock = new Object();
 
-    // log
     private HashMap<String, Log> logList = new HashMap<>();
 
     private Long seen = System.currentTimeMillis();
@@ -154,16 +156,14 @@ public class JobsPlayer {
 
     public boolean isUnderLimit(CurrencyType type, Double amount) {
 	Player player = getPlayer();
-	if (player == null)
-	    return true;
-	if (amount == 0)
+	if (player == null || amount == 0)
 	    return true;
 	CurrencyLimit limit = Jobs.getGCManager().getLimit(type);
 	if (!limit.isEnabled())
 	    return true;
 	PaymentData data = getPaymentLimit();
-	Integer value = limits.get(type);
-	if (data.isReachedLimit(type, value == null ? 0 : value)) {
+	Integer value = limits.getOrDefault(type, 0);
+	if (data.isReachedLimit(type, value)) {
 	    String name = type.getName().toLowerCase();
 
 	    if (player.isOnline() && !data.isInformed() && !data.isReseted(type)) {
@@ -280,30 +280,41 @@ public class JobsPlayer {
 
 	ArrayList<BoostCounter> counterList = new ArrayList<>();
 	counterList.add(new BoostCounter(type, Boost, time));
- 
+
 	boostCounter.put(JobName, counterList);
 	return Boost;
     }
 
     private Double getPlayerBoostNew(String JobName, CurrencyType type) {
-	Double v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost." + JobName + "." + type.getName(), true, false, true);
+	Double v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost." + JobName + "." + type.getName(), true, false);
 	Double Boost = v1;
-	
-	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost." + JobName + ".all", false, false, true);
+
+	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost." + JobName + ".all", false, false);
 	if (v1 != 0d && (v1 > Boost || v1 < Boost))
 	    Boost = v1;
 
-	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost.all.all", false, false, true);
+	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost.all.all", false, false);
 	if (v1 != 0d && (v1 > Boost || v1 < Boost))
 	    Boost = v1;
 
-	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost.all." + type.getName(), false, false, true);
+	v1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.boost.all." + type.getName(), false, false);
 	if (v1 != 0d && (v1 > Boost || v1 < Boost))
 	    Boost = v1;
 
 	return Boost;
     }
 
+    public int getPlayerMaxQuest(String jobName) {
+	int m1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.maxquest." + jobName, false, true).intValue();
+	int max = m1;
+
+	m1 = Jobs.getPermissionManager().getMaxPermission(this, "jobs.maxquest.all", false, true).intValue();
+	if (m1 != 0 && (m1 > max || m1 < max)) {
+	    max = m1;
+	}
+
+	return max;
+    }
 
     /**
      * Reloads max experience for this job.
@@ -319,6 +330,7 @@ public class JobsPlayer {
 	int TotalLevel = getTotalLevels();
 	Parser eq = Jobs.getGCManager().getLimit(type).getMaxEquation();
 	eq.setVariable("totallevel", TotalLevel);
+	maxJobsEquation = Jobs.getPlayerManager().getMaxJobs(this);
 	limits.put(type, (int) eq.getValue());
 	setSaved(false);
     }
@@ -842,8 +854,8 @@ public class JobsPlayer {
 	    JobInfo jobinfo = Jobs.getNoneJob().getJobInfo(info, 1);
 	    if (jobinfo == null)
 		return false;
-	    Double income = jobinfo.getIncome(1, numjobs);
-	    Double points = jobinfo.getPoints(1, numjobs);
+	    Double income = jobinfo.getIncome(1, numjobs, maxJobsEquation);
+	    Double points = jobinfo.getPoints(1, numjobs, maxJobsEquation);
 	    if (income == 0D && points == 0D)
 		return false;
 	}
@@ -853,9 +865,9 @@ public class JobsPlayer {
 	    JobInfo jobinfo = prog.getJob().getJobInfo(info, level);
 	    if (jobinfo == null)
 		continue;
-	    Double income = jobinfo.getIncome(level, numjobs);
-	    Double pointAmount = jobinfo.getPoints(level, numjobs);
-	    Double expAmount = jobinfo.getExperience(level, numjobs);
+	    Double income = jobinfo.getIncome(level, numjobs, maxJobsEquation);
+	    Double pointAmount = jobinfo.getPoints(level, numjobs, maxJobsEquation);
+	    Double expAmount = jobinfo.getExperience(level, numjobs, maxJobsEquation);
 	    if (income != 0D || pointAmount != 0D || expAmount != 0D)
 		return true;
 	}
