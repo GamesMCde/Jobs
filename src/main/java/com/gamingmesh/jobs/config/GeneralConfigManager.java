@@ -90,20 +90,20 @@ public class GeneralConfigManager {
     public boolean useBlockProtection, enableSchedule, PayForRenaming, PayForEnchantingOnAnvil, PayForEachCraft, SignsEnabled,
 	SignsColorizeJobName, ShowToplistInScoreboard, useGlobalTimer, useSilkTouchProtection, UseCustomNames,
 	PreventSlimeSplit, PreventMagmaCubeSplit, PreventHopperFillUps, PreventBrewingStandFillUps,
-	BrowseUseNewLook, payExploringWhenGliding, disablePaymentIfMaxLevelReached, disablePaymentIfRiding,
-	boostedItemsInOffHand, preventCropResizePayment, payItemDurabilityLoss,
+	BrowseUseNewLook, payExploringWhenGliding = false, disablePaymentIfMaxLevelReached, disablePaymentIfRiding,
+	boostedItemsInOffHand = false, boostedItemsInMainHand, boostedArmorItems, preventCropResizePayment, payItemDurabilityLoss,
 	applyToNegativeIncome, useMinimumOveralPayment, useMinimumOveralPoints, useBreederFinder,
 	CancelCowMilking, fixAtMaxLevel, TitleChangeChat, TitleChangeActionBar, LevelChangeChat,
 	LevelChangeActionBar, SoundLevelupUse, SoundTitleChangeUse, UseServerAccount, EmptyServerAccountChat,
-	EmptyServerAccountActionBar, ActionBarsMessageByDefault, ShowTotalWorkers, ShowPenaltyBonus, useDynamicPayment,
+	EmptyServerAccountActionBar, ActionBarsMessageByDefault, aBarSilentMode, ShowTotalWorkers, ShowPenaltyBonus, useDynamicPayment,
 	JobsGUIOpenOnBrowse, JobsGUIShowChatBrowse, JobsGUISwitcheButtons, ShowActionNames,
 	DisableJoiningJobThroughGui, FireworkLevelupUse, UseRandom, UseFlicker, UseTrail, UsePerPermissionForLeaving,
 	EnableConfirmation, FilterHiddenPlayerFromTabComplete, jobsInfoOpensBrowse, MonsterDamageUse, useMaxPaymentCurve,
 	hideJobsInfoWithoutPermission, UseTaxes, TransferToServerAccount, TakeFromPlayersPayment, AutoJobJoinUse, AllowDelevel,
-	BossBarEnabled, BossBarShowOnEachAction, BossBarsMessageByDefault, ExploreCompact, DBCleaningJobsUse, DBCleaningUsersUse,
+	BossBarEnabled = false, BossBarShowOnEachAction = false, BossBarsMessageByDefault = false, ExploreCompact, DBCleaningJobsUse, DBCleaningUsersUse,
 	DisabledWorldsUse, UseAsWhiteListWorldList, PaymentMethodsMoney, PaymentMethodsPoints, PaymentMethodsExp, MythicMobsEnabled,
 	LoggingUse, payForCombiningItems, BlastFurnacesReassign = false, SmokerReassign = false, payForStackedEntities,
-	payForEachVTradeItem, titleMessageMaxLevelReached;
+	payForEachVTradeItem, titleMessageMaxLevelReached, allowEnchantingBoostedItems;
 
     public ItemStack guiBackButton, guiNextButton, guiFiller;
 
@@ -264,7 +264,7 @@ public class GeneralConfigManager {
 	// Load locale
 	Jobs.getLanguageManager().load();
 	// title settings
-	Jobs.gettitleManager().load();
+	Jobs.getTitleManager().load();
 	// restricted areas
 	Jobs.getRestrictedAreaManager().load();
 	// restricted blocks
@@ -389,9 +389,6 @@ public class GeneralConfigManager {
 	    "By setting this to true when there is max amount of players explored a chunk then it will be marked as fully explored and exact players who explored it will not be saved to save some memory");
 	ExploreCompact = c.get("Optimizations.Explore.Compact", true);
 
-//	c.addComment("Optimizations.Purge.Use", "By setting this to true, Jobs plugin will clean data base on startup from all jobs with level 1 and at 0 exp");
-//	PurgeUse = c.get("Optimizations.Purge.Use", false);
-
 	c.addComment("Logging.Use", "With this set to true all players jobs actions will be logged to database for easy to see statistics",
 	    "This is still in development and in future it will expand");
 	LoggingUse = c.get("Logging.Use", false);
@@ -455,9 +452,15 @@ public class GeneralConfigManager {
 	addXpPlayer = c.get("add-xp-player", false);
 
 	if (Version.isCurrentEqualOrHigher(Version.v1_9_R1)) {
-	    c.addComment("enable-boosted-items-in-offhand", "Do the jobs boost ignore the boosted items usage in off hand?");
-	    boostedItemsInOffHand = c.get("enable-boosted-items-in-offhand", true);
+		c.addComment("enable-boosted-items-in-offhand", "Do the jobs boost ignore the boosted items usage in off hand?");
+		boostedItemsInOffHand = c.get("enable-boosted-items-in-offhand", true);
 	}
+
+	c.addComment("enable-boosted-items-in-mainhand", "Do the jobs boost ignore the boosted items usage in main hand?");
+	boostedItemsInMainHand = c.get("enable-boosted-items-in-mainhand", true);
+
+	c.addComment("enable-boosted-armor-items", "Do the jobs boost ignore the boosted items usage in armor slots?");
+	boostedArmorItems = c.get("enable-boosted-armor-items", true);
 
 	c.addComment("prevent-crop-resize-payment", "Do you want to prevent crop resizing payment when placing more cactus?",
 	    "This option is only related to: sugar_cane, cactus, kelp, bamboo");
@@ -570,14 +573,11 @@ public class GeneralConfigManager {
 	    "jobstotalplayers: The number of people in that particular job",
 	    "Exponential equation: totalworkers / totaljobs / jobstotalplayers - 1",
 	    "Linear equation: ((totalworkers / totaljobs) - jobstotalplayers)/10.0");
-	String maxExpEquationInput = c.get("Economy.DynamicPayment.equation", "totalworkers / totaljobs / jobstotalplayers - 1");
 	try {
-	    DynamicPaymentEquation = new Parser(maxExpEquationInput);
-	    // test equation
+	    DynamicPaymentEquation = new Parser(c.get("Economy.DynamicPayment.equation", "totalworkers / totaljobs / jobstotalplayers - 1"));
 	    DynamicPaymentEquation.setVariable("totalworkers", 100);
 	    DynamicPaymentEquation.setVariable("totaljobs", 10);
 	    DynamicPaymentEquation.setVariable("jobstotalplayers", 10);
-	    DynamicPaymentEquation.getValue();
 	} catch (Throwable e) {
 	    Jobs.consoleMsg("&cDynamic payment equation has an invalid property. Disabling feature!");
 	    useDynamicPayment = false;
@@ -626,11 +626,10 @@ public class GeneralConfigManager {
 	    "You can always use simple number to set money limit",
 	    "Default equation is: 500+500*(totallevel/100), this will add 1% from 500 for each level player have",
 	    "So player with 2 jobs with level 15 and 22 will have 685 limit");
-	String MoneyLimit = c.get("Economy.Limit.Money.MoneyLimit", "500+500*(totallevel/100)");
 	try {
-	    Parser Equation = new Parser(MoneyLimit);
-	    Equation.setVariable("totallevel", 1);
-	    limit.setMaxEquation(Equation);
+	    Parser equation = new Parser(c.get("Economy.Limit.Money.MoneyLimit", "500+500*(totallevel/100)"));
+	    equation.setVariable("totallevel", 1);
+	    limit.setMaxEquation(equation);
 	} catch (Throwable e) {
 	    Jobs.getPluginLogger().warning("MoneyLimit has an invalid value. Disabling money limit!");
 	    limit.setEnabled(false);
@@ -659,11 +658,10 @@ public class GeneralConfigManager {
 	    "You can always use simple number to set limit",
 	    "Default equation is: 500+500*(totallevel/100), this will add 1% from 500 for each level player have",
 	    "So player with 2 jobs with level 15 and 22 will have 685 limit");
-	String PointLimit = c.get("Economy.Limit.Point.Limit", "500+500*(totallevel/100)");
 	try {
-	    Parser Equation = new Parser(PointLimit);
-	    Equation.setVariable("totallevel", 1);
-	    limit.setMaxEquation(Equation);
+	    Parser equation = new Parser(c.get("Economy.Limit.Point.Limit", "500+500*(totallevel/100)"));
+	    equation.setVariable("totallevel", 1);
+	    limit.setMaxEquation(equation);
 	} catch (Throwable e) {
 	    Jobs.getPluginLogger().warning("PointLimit has an invalid value. Disabling money limit!");
 	    limit.setEnabled(false);
@@ -692,11 +690,10 @@ public class GeneralConfigManager {
 	    "You can always use simple number to set exp limit",
 	    "Default equation is: 5000+5000*(totallevel/100), this will add 1% from 5000 for each level player have",
 	    "So player with 2 jobs with level 15 and 22 will have 6850 limit");
-	String expLimit = c.get("Economy.Limit.Exp.Limit", "5000+5000*(totallevel/100)");
 	try {
-	    Parser Equation = new Parser(expLimit);
-	    Equation.setVariable("totallevel", 1);
-	    limit.setMaxEquation(Equation);
+	    Parser equation = new Parser(c.get("Economy.Limit.Exp.Limit", "5000+5000*(totallevel/100)"));
+	    equation.setVariable("totallevel", 1);
+	    limit.setMaxEquation(equation);
 	} catch (Throwable e) {
 	    Jobs.getPluginLogger().warning("ExpLimit has an invalid value. Disabling money limit!");
 	    limit.setEnabled(false);
@@ -715,6 +712,9 @@ public class GeneralConfigManager {
 
 	c.addComment("Economy.Enchant.PayForEnchantingOnAnvil", "Do you want to give money for enchanting items in anvil?");
 	PayForEnchantingOnAnvil = c.get("Economy.Enchant.PayForEnchantingOnAnvil", false);
+
+	c.addComment("Economy.Enchant.AllowEnchantingBoostedItems", "Do you want to allow players to enchant their boosted items?");
+	allowEnchantingBoostedItems = c.get("Economy.Enchant.AllowEnchantingBoostedItems", true);
 
 	c.addComment("Economy.Crafting.PayForEachCraft",
 	    "With this true, player will get money for all crafted items instead of each crafting action (like with old payment mechanic)",
@@ -832,6 +832,8 @@ public class GeneralConfigManager {
 	c.addComment("ActionBars.Messages.EnabledByDefault", "When this set to true player will see action bar messages by default",
 	    "When false, players will see chat messages instead.");
 	ActionBarsMessageByDefault = c.get("ActionBars.Messages.EnabledByDefault", true);
+	c.addComment("ActionBars.Messages.SilentMode", "If true, should we mute the payment messages from appearing in chat if actionbar is disabled?");
+	aBarSilentMode = c.get("ActionBars.Messages.SilentMode", false);
 
 	if (Version.isCurrentEqualOrHigher(Version.v1_9_R1)) {
 	    c.addComment("BossBar.Enabled", "Enables BossBar feature", "Works only from 1.9 mc version");
@@ -954,8 +956,7 @@ public class GeneralConfigManager {
 	c.addComment("Commands.JobsInfo.open-browse", "Open up the jobs browse action list, when your performed /jobs info command?");
 	jobsInfoOpensBrowse = c.get("Commands.JobsInfo.open-browse", false);
 
-	CMIMaterial tmat = null;
-	tmat = CMIMaterial.get(c.get("JobsGUI.BackButton.Material", "JACK_O_LANTERN").toUpperCase());
+	CMIMaterial tmat = CMIMaterial.get(c.get("JobsGUI.BackButton.Material", "JACK_O_LANTERN").toUpperCase());
 	guiBackButton = (tmat == null ? CMIMaterial.JACK_O_LANTERN : tmat).newItemStack();
 
 	tmat = CMIMaterial.get(c.get("JobsGUI.NextButton.Material", "ARROW").toUpperCase());
@@ -963,9 +964,6 @@ public class GeneralConfigManager {
 
 	tmat = CMIMaterial.get(c.get("JobsGUI.Filler.Material", "GREEN_STAINED_GLASS_PANE").toUpperCase());
 	guiFiller = (tmat == null ? CMIMaterial.GREEN_STAINED_GLASS_PANE : tmat).newItemStack();
-
-//	c.addComment("Schedule.Boost.Enable", "Do you want to enable scheduler for global boost?");
-//	useGlobalBoostScheduler = c.get("Schedule.Boost.Enable", false);
 
 	c.save();
     }

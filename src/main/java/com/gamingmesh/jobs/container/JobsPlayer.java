@@ -93,38 +93,76 @@ public class JobsPlayer {
 	this.userName = userName == null ? "Unknown" : userName;
     }
 
+    /**
+     * @return the cached or new instance of {@link PlayerPoints}
+     */
     public PlayerPoints getPointsData() {
 	if (pointsData == null)
 	    pointsData = new PlayerPoints();
 	return pointsData;
     }
 
-    public void addPoints(Double points) {
+    /**
+     * Adds points to this player.
+     * 
+     * @param points the amount of points
+     */
+    public void addPoints(double points) {
 	getPointsData().addPoints(points);
     }
 
-    public void takePoints(Double points) {
+    /**
+     * Takes points from this player.
+     * 
+     * @param points the amount of points
+     */
+    public void takePoints(double points) {
 	getPointsData().takePoints(points);
     }
 
-    public void setPoints(Double points) {
+    /**
+     * Sets points for this player.
+     * 
+     * @param points the amount of points
+     */
+    public void setPoints(double points) {
 	getPointsData().setPoints(points);
     }
 
+    /**
+     * Sets points for this player from the given {@link PlayerPoints}
+     * 
+     * @param points {@link PlayerPoints}
+     */
     public void setPoints(PlayerPoints points) {
 	getPointsData().setPoints(points.getCurrentPoints());
 	getPointsData().setTotalPoints(points.getTotalPoints());
 	getPointsData().setDbId(points.getDbId());
     }
 
+    /**
+     * Checks whenever have enough points for the given one.
+     * 
+     * @param points amount of points
+     * @return true if yes
+     */
     public boolean havePoints(double points) {
 	return getPointsData().getCurrentPoints() >= points;
     }
 
+    /**
+     * @return the cached instance of {@link ArchivedJobs}
+     */
     public ArchivedJobs getArchivedJobs() {
 	return archivedJobs;
     }
 
+    /**
+     * Returns the given archived job progression.
+     * 
+     * @param job {@link Job}
+     * @return the given archived job progression
+     */
     public JobProgression getArchivedJobProgression(Job job) {
 	return archivedJobs.getArchivedJobProgression(job);
     }
@@ -133,6 +171,9 @@ public class JobsPlayer {
 	this.archivedJobs = archivedJob;
     }
 
+    /**
+     * @return the total level of all jobs for this player
+     */
     public int getTotalLevels() {
 	int i = 0;
 	for (JobProgression job : progression) {
@@ -145,6 +186,9 @@ public class JobsPlayer {
 	this.paymentLimits = paymentLimits;
     }
 
+    /**
+     * @return the limit of {@link PaymentData}
+     */
     public PaymentData getPaymentLimit() {
 	if (paymentLimits == null)
 	    paymentLimits = Jobs.getJobsDAO().getPlayersLimits(this);
@@ -154,6 +198,13 @@ public class JobsPlayer {
 	return paymentLimits;
     }
 
+    /**
+     * Checks whenever this player is under limit for specific {@link CurrencyType}
+     * 
+     * @param type {@link CurrencyType}
+     * @param amount amount of points
+     * @return true if it is under
+     */
     public boolean isUnderLimit(CurrencyType type, Double amount) {
 	Player player = getPlayer();
 	if (player == null || amount == 0)
@@ -189,27 +240,33 @@ public class JobsPlayer {
 
     public double percentOverLimit(CurrencyType type) {
 	Integer value = limits.get(type);
-	PaymentData data = getPaymentLimit();
-	return data.percentOverLimit(type, value == null ? 0 : value);
+	return getPaymentLimit().percentOverLimit(type, value == null ? 0 : value);
     }
 
+    /**
+     * Attempt to load log for this player.
+     * 
+     * @deprecated use {@link JobsDAO#loadLog(JobsPlayer)} instead
+     */
+    @Deprecated
     public void loadLogFromDao() {
 	Jobs.getJobsDAO().loadLog(this);
     }
 
-    public synchronized List<String> getUpdateBossBarFor() {
+    public List<String> getUpdateBossBarFor() {
 	return updateBossBarFor;
     }
 
-    public synchronized void clearUpdateBossBarFor() {
+    @Deprecated
+    public void clearUpdateBossBarFor() {
 	updateBossBarFor.clear();
     }
 
-    public synchronized List<BossBarInfo> getBossBarInfo() {
+    public List<BossBarInfo> getBossBarInfo() {
 	return barMap;
     }
 
-    public synchronized void hideBossBars() {
+    public void hideBossBars() {
 	for (BossBarInfo one : barMap) {
 	    one.getBar().setVisible(false);
 	}
@@ -232,21 +289,32 @@ public class JobsPlayer {
     }
 
     /**
-     * Get the player
-     * @return the player
+     * @return {@link Player} or null if not exist
      */
     public Player getPlayer() {
 	return playerUUID != null ? Bukkit.getPlayer(playerUUID) : null;
     }
 
     /**
-     * Get the Boost
-     * @return the Boost
+     * Attempts to get the boost from specific job and {@link CurrencyType}
+     * 
+     * @param JobName
+     * @param type {@link CurrencyType}
+     * @see #getBoost(String, CurrencyType, boolean)
+     * @return amount of boost
      */
     public double getBoost(String JobName, CurrencyType type) {
 	return getBoost(JobName, type, false);
     }
 
+    /**
+     * Attempts to get the boost from specific job and {@link CurrencyType}
+     * 
+     * @param JobName
+     * @param type {@link CurrencyType}
+     * @param force whenever to retrieve as soon as possible without time
+     * @return amount of boost
+     */
     public double getBoost(String JobName, CurrencyType type, boolean force) {
 	double Boost = 0D;
 
@@ -317,7 +385,7 @@ public class JobsPlayer {
     }
 
     /**
-     * Reloads max experience for this job.
+     * Reloads max experience for all jobs for this player.
      */
     public void reloadMaxExperience() {
 	progression.forEach(JobProgression::reloadMaxExperience);
@@ -342,8 +410,7 @@ public class JobsPlayer {
     }
 
     public int getLimit(CurrencyType type) {
-	Integer value = type == null ? 0 : limits.get(type);
-	return value;
+	return type == null ? 0 : limits.get(type);
     }
 
     public void resetPaymentLimit() {
@@ -355,16 +422,17 @@ public class JobsPlayer {
     }
 
     /**
-     * Get the list of job progressions
-     * @return the list of job progressions
+     * @return an unmodifiable list of job progressions
      */
     public List<JobProgression> getJobProgression() {
 	return Collections.unmodifiableList(progression);
     }
 
     /**
-     * Get the job progression with the certain job
-     * @return the job progression
+     * Get the job progression from the certain job
+     * 
+     * @param job {@link Job}
+     * @return the job progression or null if job not exists
      */
     public JobProgression getJobProgression(Job job) {
 	for (JobProgression prog : progression) {
@@ -384,8 +452,7 @@ public class JobsPlayer {
     }
 
     /**
-     * get the getName
-     * @return the getName
+     * @return the name of this player
      */
     public String getName() {
 	Player player = Bukkit.getPlayer(getUniqueId());
@@ -404,8 +471,7 @@ public class JobsPlayer {
     }
 
     /**
-     * get the playerUUID
-     * @return the playerUUID
+     * @return the {@link UUID} of this player
      */
     public UUID getUniqueId() {
 	return playerUUID;
@@ -426,8 +492,9 @@ public class JobsPlayer {
     }
 
     /**
-     * Player joins a job
-     * @param job - the job joined
+     * Attempts to join this player to the given job.
+     * 
+     * @param job where to join
      */
     public boolean joinJob(Job job) {
 //	synchronized (saveLock) {
@@ -521,8 +588,8 @@ public class JobsPlayer {
     }
 
     /**
-     * Leave all jobs
-     * @return on success
+     * Attempts to leave all jobs from this player.
+     * @return true if success
      */
     public boolean leaveAllJobs() {
 //	synchronized (saveLock) {
@@ -641,10 +708,10 @@ public class JobsPlayer {
     }
 
     /**
-     * Checks if the player is in this job.
-     * @param job - the job
-     * @return true - they are in the job
-     * @return false - they are not in the job
+     * Checks if the player is in the given job.
+     * 
+     * @param job {@link Job}
+     * @return true if this player is in the given job, otherwise false
      */
     public boolean isInJob(Job job) {
 	if (job == null)
@@ -657,102 +724,105 @@ public class JobsPlayer {
     }
 
     /**
-     * Function that reloads your honorific
+     * Function that reloads this player honorific
      */
     public void reloadHonorific() {
 	StringBuilder builder = new StringBuilder();
-	int numJobs = progression.size();
-	boolean gotTitle = false;
 
-	if (numJobs > 0) {
+	if (progression.size() > 0) {
 	    for (JobProgression prog : progression) {
 		DisplayMethod method = prog.getJob().getDisplayMethod();
 		if (method == DisplayMethod.NONE)
 		    continue;
-
-		if (gotTitle) {
+		if (!builder.toString().isEmpty()) {
 		    builder.append(Jobs.getGCManager().modifyChatSeparator);
-		    gotTitle = false;
 		}
-
-		Title title = Jobs.gettitleManager().getTitle(prog.getLevel(), prog.getJob().getName());
-
-		if (numJobs == 1) {
-		    if (method == DisplayMethod.FULL || method == DisplayMethod.TITLE) {
-			if (title != null) {
-			    String honorificpart = title.getChatColor() + title.getName() + CMIChatColor.WHITE;
-			    if (honorificpart.contains("{level}"))
-				honorificpart = honorificpart.replace("{level}", String.valueOf(prog.getLevel()));
-			    builder.append(honorificpart);
-			    gotTitle = true;
-			}
-		    }
-
-		    if (method == DisplayMethod.FULL || method == DisplayMethod.JOB) {
-			if (gotTitle) {
-			    builder.append(' ');
-			}
-
-			String honorificpart = prog.getJob().getNameWithColor() + CMIChatColor.WHITE;
-			if (honorificpart.contains("{level}"))
-			    honorificpart = honorificpart.replace("{level}", String.valueOf(prog.getLevel()));
-
-			builder.append(honorificpart);
-			gotTitle = true;
-		    }
-		}
-
-		if (numJobs > 1 && (method == DisplayMethod.FULL) || method == DisplayMethod.TITLE || method == DisplayMethod.SHORT_FULL || method == DisplayMethod.SHORT_TITLE) {
-		    // add title to honorific
-		    if (title != null) {
-			String honorificpart = title.getChatColor() + title.getShortName() + CMIChatColor.WHITE;
-			if (honorificpart.contains("{level}"))
-			    honorificpart = honorificpart.replace("{level}", String.valueOf(prog.getLevel()));
-
-			builder.append(honorificpart);
-			gotTitle = true;
-		    }
-		}
-
-		if (numJobs > 1 && (method == DisplayMethod.FULL) || method == DisplayMethod.JOB || method == DisplayMethod.SHORT_FULL || method == DisplayMethod.SHORT_JOB) {
-		    String honorificpart = prog.getJob().getChatColor() + prog.getJob().getShortName() + CMIChatColor.WHITE;
-		    if (honorificpart.contains("{level}"))
-			honorificpart = honorificpart.replace("{level}", String.valueOf(prog.getLevel()));
-
-		    builder.append(honorificpart);
-		    gotTitle = true;
-		}
+		Title title = Jobs.getTitleManager().getTitle(prog.getLevel(), prog.getJob().getName());
+		processesChat(method, builder, prog.getLevel(), title, prog.getJob());
 	    }
 	} else {
 	    Job nonejob = Jobs.getNoneJob();
 	    if (nonejob != null) {
-		DisplayMethod metod = nonejob.getDisplayMethod();
-		if (metod == DisplayMethod.FULL || metod == DisplayMethod.TITLE) {
-		    String honorificpart = Jobs.getNoneJob().getChatColor() + Jobs.getNoneJob().getName() + CMIChatColor.WHITE;
-		    if (honorificpart.contains("{level}"))
-			honorificpart = honorificpart.replace("{level}", "");
-
-		    builder.append(honorificpart);
-		}
-
-		if (metod == DisplayMethod.SHORT_FULL || metod == DisplayMethod.SHORT_TITLE || metod == DisplayMethod.SHORT_JOB) {
-		    String honorificpart = Jobs.getNoneJob().getChatColor() + Jobs.getNoneJob().getShortName() + CMIChatColor.WHITE;
-		    if (honorificpart.contains("{level}"))
-			honorificpart = honorificpart.replace("{level}", "");
-
-		    builder.append(honorificpart);
-		}
+		processesChat(nonejob.getDisplayMethod(), builder, -1, null, nonejob);
 	    }
 	}
 
 	honorific = builder.toString().trim();
-	if (honorific.length() > 0)
+	if (!honorific.isEmpty())
 	    honorific = CMIChatColor.translate(Jobs.getGCManager().modifyChatPrefix + honorific + Jobs.getGCManager().modifyChatSuffix);
+    }
 
+    private static void processesChat(DisplayMethod method, StringBuilder builder, int level, Title title, Job job) {
+
+	String levelS = level < 0 ? "" : String.valueOf(level);
+	switch (method) {
+	case FULL:
+	    processesTitle(builder, title, levelS);
+	    processesJob(builder, job, levelS);
+	    break;
+	case TITLE:
+	    processesTitle(builder, title, levelS);
+	    break;
+	case JOB:
+	    processesJob(builder, job, levelS);
+	    break;
+	case SHORT_FULL:
+	    processesShortTitle(builder, title, levelS);
+	    processesShortJob(builder, job, levelS);
+	    break;
+	case SHORT_TITLE:
+	    processesShortTitle(builder, title, levelS);
+	    break;
+	case SHORT_JOB:
+	    processesShortJob(builder, job, levelS);
+	    break;
+	case SHORT_TITLE_JOB:
+	    processesShortTitle(builder, title, levelS);
+	    processesJob(builder, job, levelS);
+	    break;
+	case TITLE_SHORT_JOB:
+	    processesTitle(builder, title, levelS);
+	    processesShortJob(builder, job, levelS);
+	    break;
+	default:
+	    break;
+	}
+    }
+
+    private static void processesShortTitle(StringBuilder builder, Title title, String levelS) {
+	if (title == null)
+	    return;
+	builder.append(title.getChatColor());
+	builder.append(title.getShortName().replace("{level}", levelS));
+	builder.append(CMIChatColor.WHITE);
+    }
+
+    private static void processesTitle(StringBuilder builder, Title title, String levelS) {
+	if (title == null)
+	    return;
+	builder.append(title.getChatColor());
+	builder.append(title.getName().replace("{level}", levelS));
+	builder.append(CMIChatColor.WHITE);
+    }
+
+    private static void processesShortJob(StringBuilder builder, Job job, String levelS) {
+	if (job == null)
+	    return;
+	builder.append(job.getChatColor());
+	builder.append(job.getShortName().replace("{level}", levelS));
+	builder.append(CMIChatColor.WHITE);
+    }
+
+    private static void processesJob(StringBuilder builder, Job job, String levelS) {
+	if (job == null)
+	    return;
+	builder.append(job.getChatColor());
+	builder.append(job.getName().replace("{level}", levelS));
+	builder.append(CMIChatColor.WHITE);
     }
 
     /**
-     * Performs player save
+     * Performs player save into database
      */
     public void save() {
 //	synchronized (saveLock) {
@@ -781,8 +851,7 @@ public class JobsPlayer {
     }
 
     /**
-     * Perform disconnect
-     * 
+     * Perform disconnect for this player
      */
     public void onDisconnect() {
 //	Jobs.getJobsDAO().savePoints(this);
@@ -844,6 +913,12 @@ public class JobsPlayer {
 	this.lastPermissionUpdate = lastPermissionUpdate;
     }
 
+    /**
+     * Checks whenever this player can get paid for the given action.
+     * 
+     * @param info {@link ActionInfo}
+     * @return true if yes
+     */
     public boolean canGetPaid(ActionInfo info) {
 	List<JobProgression> progression = getJobProgression();
 	int numjobs = progression.size();
@@ -865,11 +940,11 @@ public class JobsPlayer {
 	    JobInfo jobinfo = prog.getJob().getJobInfo(info, level);
 	    if (jobinfo == null)
 		continue;
+
 	    Double income = jobinfo.getIncome(level, numjobs, maxJobsEquation);
 	    Double pointAmount = jobinfo.getPoints(level, numjobs, maxJobsEquation);
 	    Double expAmount = jobinfo.getExperience(level, numjobs, maxJobsEquation);
-	    if (income != 0D || pointAmount != 0D || expAmount != 0D)
-		return true;
+		return income != 0D || pointAmount != 0D || expAmount != 0D;
 	}
 
 	return false;
@@ -1173,7 +1248,7 @@ public class JobsPlayer {
 	this.doneQuests = doneQuests;
     }
 
-    private Integer questSignUpdateShed = null;
+    private Integer questSignUpdateShed;
 
     public void addDoneQuest(final Job job) {
 	this.doneQuests++;
@@ -1196,8 +1271,7 @@ public class JobsPlayer {
      */
     @Deprecated
     public int getFurnaceCount() {
-	return !Jobs.getInstance().getBlockOwnerShip(BlockTypes.FURNACE).isPresent() ? 0 :
-		Jobs.getInstance().getBlockOwnerShip(BlockTypes.FURNACE).get().getTotal(getUniqueId());
+	return !Jobs.getInstance().getBlockOwnerShip(BlockTypes.FURNACE).isPresent() ? 0 : Jobs.getInstance().getBlockOwnerShip(BlockTypes.FURNACE).get().getTotal(getUniqueId());
     }
 
     /**
@@ -1206,8 +1280,7 @@ public class JobsPlayer {
      */
     @Deprecated
     public int getBrewingStandCount() {
-	return !Jobs.getInstance().getBlockOwnerShip(BlockTypes.BREWING_STAND).isPresent() ? 0 :
-		Jobs.getInstance().getBlockOwnerShip(BlockTypes.BREWING_STAND).get().getTotal(getUniqueId());
+	return !Jobs.getInstance().getBlockOwnerShip(BlockTypes.BREWING_STAND).isPresent() ? 0 : Jobs.getInstance().getBlockOwnerShip(BlockTypes.BREWING_STAND).get().getTotal(getUniqueId());
     }
 
     /**
@@ -1240,8 +1313,7 @@ public class JobsPlayer {
      */
     public int getMaxOwnerShipAllowed(BlockTypes type) {
 	String perm = "jobs.max" + (type == BlockTypes.FURNACE
-	    ? "furnaces" : type == BlockTypes.BLAST_FURNACE ? "blastfurnaces" : type == BlockTypes.SMOKER ? "smokers" : 
-	    type == BlockTypes.BREWING_STAND ? "brewingstands" : "");
+	    ? "furnaces" : type == BlockTypes.BLAST_FURNACE ? "blastfurnaces" : type == BlockTypes.SMOKER ? "smokers" : type == BlockTypes.BREWING_STAND ? "brewingstands" : "");
 	if (perm.isEmpty())
 	    return 0;
 

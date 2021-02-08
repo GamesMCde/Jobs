@@ -99,7 +99,7 @@ public class Jobs extends JavaPlugin {
     private static List<Job> jobs;
     private static Job noneJob;
     private static WeakHashMap<Job, Integer> usedSlots = new WeakHashMap<>();
-    private static HashMap<Integer, Job> jobsIds = new HashMap<>();
+    private static Map<Integer, Job> jobsIds = new HashMap<>();
 
     private static BufferedEconomy economy;
     private static PermissionHandler permissionHandler;
@@ -118,10 +118,26 @@ public class Jobs extends JavaPlugin {
 
     private static PointsData pointsDatabase;
 
+    /**
+     * Returns the block owner ship for specific {@link CMIMaterial} type.
+     * 
+     * @param type {@link CMIMaterial}
+     * @see #getBlockOwnerShip(CMIMaterial, boolean)
+     * @return {@link BlockOwnerShip}, otherwise {@link Optional#empty()}
+     */
     public Optional<BlockOwnerShip> getBlockOwnerShip(CMIMaterial type) {
 	return getBlockOwnerShip(type, true);
     }
 
+    /**
+     * Returns the block owner ship for specific {@link CMIMaterial} type.
+     * If the addNew parameter is enabled, it will cache a new owner ship for specific
+     * {@link CMIMaterial} type.
+     * 
+     * @param type {@link CMIMaterial}
+     * @param addNew whenever to add a new owner ship
+     * @return {@link BlockOwnerShip}, otherwise {@link Optional#empty()}
+     */
     public Optional<BlockOwnerShip> getBlockOwnerShip(CMIMaterial type, boolean addNew) {
 	BlockOwnerShip b = null;
 	for (BlockOwnerShip ship : blockOwnerShips) {
@@ -139,6 +155,12 @@ public class Jobs extends JavaPlugin {
 	return Optional.ofNullable(b);
     }
 
+    /**
+     * Returns the block owner ship for specific {@link BlockTypes} type.
+     * 
+     * @param type {@link BlockTypes}
+     * @return {@link BlockOwnerShip}, otherwise {@link Optional#empty()}
+     */
     public Optional<BlockOwnerShip> getBlockOwnerShip(BlockTypes type) {
 	for (BlockOwnerShip ship : blockOwnerShips) {
 	    if (ship.getType() == type) {
@@ -149,6 +171,9 @@ public class Jobs extends JavaPlugin {
 	return Optional.empty();
     }
 
+    /**
+     * @return a set of block owner ships.
+     */
     public Set<BlockOwnerShip> getBlockOwnerShips() {
 	return blockOwnerShips;
     }
@@ -241,8 +266,7 @@ public class Jobs extends JavaPlugin {
     }
 
     /**
-     * Returns player manager
-     * @return the player manager
+     * @return {@link PlayerManager}
      */
     public static PlayerManager getPlayerManager() {
 	if (pManager == null)
@@ -266,7 +290,20 @@ public class Jobs extends JavaPlugin {
 	return raManager;
     }
 
+    /**
+     * @deprecated miss named
+     * @see #getTitleManager()
+     * @return
+     */
+    @Deprecated
     public static TitleManager gettitleManager() {
+	return getTitleManager();
+    }
+
+    /**
+     * @return {@link TitleManager}
+     */
+    public static TitleManager getTitleManager() {
 	if (titleManager == null) {
 	    titleManager = new TitleManager();
 	}
@@ -440,6 +477,12 @@ public class Jobs extends JavaPlugin {
 	return null;
     }
 
+    /**
+     * Returns a job by identifier.
+     * 
+     * @param id the id of job
+     * @return {@link Job}
+     */
     public static Job getJob(int id) {
 	return jobsIds.get(id);
     }
@@ -448,7 +491,10 @@ public class Jobs extends JavaPlugin {
 	return placeholderAPIEnabled;
     }
 
-    public static HashMap<Integer, Job> getJobsIds() {
+    /**
+     * @return the cached job id map.
+     */
+    public static Map<Integer, Job> getJobsIds() {
 	return jobsIds;
     }
 
@@ -493,27 +539,6 @@ public class Jobs extends JavaPlugin {
 	});
     }
 
-    /**
-     * Executes clean shutdown
-     */
-    public static void shutdown() {
-	if (saveTask != null)
-	    saveTask.shutdown();
-
-	if (paymentThread != null)
-	    paymentThread.shutdown();
-
-	getPlayerManager().removePlayerAdditions();
-	getPlayerManager().saveAll();
-
-	if (dao != null) {
-	    dao.closeConnections();
-	}
-    }
-
-    /**
-     * Executes close connections
-     */
     public static void convertDatabase() {
 	try {
 	    List<Convert> archivelist = dao.convertDatabase();
@@ -542,7 +567,8 @@ public class Jobs extends JavaPlugin {
     }
 
     /**
-     * Checks if player have the given {@link ActionType} in jobs.
+     * Checks if the given {@link JobsPlayer} have the given {@link ActionType} in one of jobs.
+     * 
      * @param jPlayer {@link JobsPlayer}
      * @param type {@link ActionType}
      * @return true if the player have the given action
@@ -726,15 +752,15 @@ public class Jobs extends JavaPlugin {
 	reload(false);
     }
 
-    /**
-     * Reloads all data
-     */
     public static void reload(boolean startup) {
 	// unregister all registered listeners by this plugin and register again
 	if (!startup) {
 	    org.bukkit.plugin.PluginManager pm = getInstance().getServer().getPluginManager();
+
 	    HandlerList.unregisterAll(instance);
+
 	    com.gamingmesh.jobs.CMIGUI.GUIManager.registerListener();
+
 	    pm.registerEvents(new JobsListener(instance), instance);
 	    pm.registerEvents(new JobsPaymentListener(instance), instance);
 	    if (Version.isCurrentEqualOrHigher(Version.v1_14_R1)) {
@@ -754,12 +780,10 @@ public class Jobs extends JavaPlugin {
 
 	if (saveTask != null) {
 	    saveTask.shutdown();
-	    saveTask = null;
 	}
 
 	if (paymentThread != null) {
 	    paymentThread.shutdown();
-	    paymentThread = null;
 	}
 
 	smanager = new SelectionManager();
@@ -817,53 +841,115 @@ public class Jobs extends JavaPlugin {
 
 	HandlerList.unregisterAll(instance);
 
-	dao.saveExplore();
-	getBpManager().saveCache();
+	if (dao != null) {
+	    dao.saveExplore();
+	}
+
+	if (bpManager != null) {
+	    bpManager.saveCache();
+	}
 
 	blockOwnerShips.forEach(BlockOwnerShip::save);
 	ToggleBarHandling.save();
 
-	shutdown();
+	if (saveTask != null)
+	    saveTask.shutdown();
+
+	if (paymentThread != null)
+	    paymentThread.shutdown();
+
+	if (pManager != null) {
+	    pManager.removePlayerAdditions();
+	    pManager.saveAll();
+	}
+
+	if (dao != null) {
+	    dao.closeConnections();
+	}
+
 	instance = null;
 	consoleMsg("&e[Jobs] &2Plugin has been disabled successfully.");
-	setEnabled(false);
     }
 
     private static void checkDailyQuests(JobsPlayer jPlayer, Job job, ActionInfo info) {
 	if (!job.getQuests().isEmpty()) {
-	    List<QuestProgression> q = jPlayer.getQuestProgressions(job, info.getType());
-	    for (QuestProgression one : q) {
-		if (one != null) {
-		    one.processQuest(jPlayer, info);
-		}
+	    for (QuestProgression one : jPlayer.getQuestProgressions(job, info.getType())) {
+		one.processQuest(jPlayer, info);
 	    }
 	}
     }
 
     /**
-     * Performed an action
+     * Perform an action for the given {@link JobsPlayer} with the given action info.
      * 
-     * Give correct experience and income
-     * @param jPlayer - the player
-     * @param info - the action
+     * @param jPlayer {@link JobsPlayer}
+     * @param info {@link ActionInfo}
+     * @see #action(JobsPlayer, ActionInfo, Block, Entity, LivingEntity)
      */
-
     public static void action(JobsPlayer jPlayer, ActionInfo info) {
 	action(jPlayer, info, null, null, null);
     }
 
+    /**
+     * Perform an action for the given {@link JobsPlayer} with the given action info and block.
+     * 
+     * @param jPlayer {@link JobsPlayer}
+     * @param info {@link ActionInfo}
+     * @param block {@link Block}
+     * @see #action(JobsPlayer, ActionInfo, Block, Entity, LivingEntity)
+     */
     public static void action(JobsPlayer jPlayer, ActionInfo info, Block block) {
 	action(jPlayer, info, block, null, null);
     }
 
+    /**
+     * Perform an action for the given {@link JobsPlayer} with the given action info and entity.
+     * 
+     * @param jPlayer {@link JobsPlayer}
+     * @param info {@link ActionInfo}
+     * @param ent {@link Entity}
+     * @see #action(JobsPlayer, ActionInfo, Block, Entity, LivingEntity)
+     */
     public static void action(JobsPlayer jPlayer, ActionInfo info, Entity ent) {
 	action(jPlayer, info, null, ent, null);
     }
 
+    /**
+     * Perform an action for the given {@link JobsPlayer} with the given action info,
+     * entity and living entity.
+     * 
+     * @param jPlayer {@link JobsPlayer}
+     * @param info {@link ActionInfo}
+     * @param ent {@link Entity}
+     * @param victim {@link LivingEntity}
+     * @see #action(JobsPlayer, ActionInfo, Block, Entity, LivingEntity)
+     */
     public static void action(JobsPlayer jPlayer, ActionInfo info, Entity ent, LivingEntity victim) {
 	action(jPlayer, info, null, ent, victim);
     }
 
+    /**
+     * Perform an action for the given {@link JobsPlayer} with the parameters.
+     * <p>
+     * The process:
+     * <p>
+     * If the player does not have any job progression cached into memory, the player
+     * only retrieve the "noneJob" by default. This means that there will be no any
+     * extra income calculations and the player does no get the full income from jobs,
+     * but the half of it.<br>
+     * In other cases if player have at least 1 job cached, they will get the full income
+     * with the extra calculated multiplications including bonuses and limits.
+     * <p>
+     * 
+     * <b>This usually not be called in your code, to avoid misbehaviour working ability.</b>
+     * 
+     * @param jPlayer {@link JobsPlayer}
+     * @param info {@link ActionInfo}
+     * @param ent {@link Entity}
+     * @param victim {@link LivingEntity}
+     * @param block {@link Block}
+     * @see #action(JobsPlayer, ActionInfo, Block, Entity, LivingEntity)
+     */
     public static void action(JobsPlayer jPlayer, ActionInfo info, Block block, Entity ent, LivingEntity victim) {
 	if (jPlayer == null)
 	    return;
@@ -1274,7 +1360,6 @@ public class Jobs extends JavaPlugin {
     }
 
     public static void perform(JobsPlayer jPlayer, ActionInfo info, BufferedPayment payment, Job job) {
-	// JobsPayment event
 	JobsExpGainEvent jobsExpGainEvent = new JobsExpGainEvent(payment.getOfflinePlayer(), job, payment.get(CurrencyType.EXP));
 	Bukkit.getServer().getPluginManager().callEvent(jobsExpGainEvent);
 	// If event is canceled, don't do anything
