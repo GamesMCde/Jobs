@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -38,25 +39,17 @@ import com.gamingmesh.jobs.CMILib.ConfigReader;
 import com.gamingmesh.jobs.CMILib.Version;
 import com.gamingmesh.jobs.container.CurrencyLimit;
 import com.gamingmesh.jobs.container.CurrencyType;
-import com.gamingmesh.jobs.container.Schedule;
 import com.gamingmesh.jobs.resources.jfep.Parser;
 
 public class GeneralConfigManager {
 
-    public ArrayList<String> keys;
-
     public List<Integer> BroadcastingLevelUpLevels = new ArrayList<>();
     public List<String> FwColors = new ArrayList<>(), DisabledWorldsList = new ArrayList<>();
-    /**
-     * @deprecated use {@link ScheduleManager}
-     */
-    @Deprecated
-    public List<Schedule> BoostSchedule = new ArrayList<>();
 
-    public final HashMap<CMIMaterial, HashMap<Enchantment, Integer>> whiteListedItems = new HashMap<>();
-    private final HashMap<CurrencyType, CurrencyLimit> currencyLimitUse = new HashMap<>();
-    private final HashMap<CurrencyType, Double> generalMulti = new HashMap<>();
-    private final HashMap<String, List<String>> commandArgs = new HashMap<>();
+    public final Map<CMIMaterial, Map<Enchantment, Integer>> whiteListedItems = new HashMap<>();
+    private final Map<CurrencyType, CurrencyLimit> currencyLimitUse = new HashMap<>();
+    private final Map<CurrencyType, Double> generalMulti = new HashMap<>();
+    private final Map<String, List<String>> commandArgs = new HashMap<>();
 
     protected Locale locale;
     private ConfigReader c;
@@ -91,7 +84,7 @@ public class GeneralConfigManager {
 	SignsColorizeJobName, ShowToplistInScoreboard, useGlobalTimer, useSilkTouchProtection, UseCustomNames,
 	PreventSlimeSplit, PreventMagmaCubeSplit, PreventHopperFillUps, PreventBrewingStandFillUps,
 	BrowseUseNewLook, payExploringWhenGliding = false, disablePaymentIfMaxLevelReached, disablePaymentIfRiding,
-	boostedItemsInOffHand = false, boostedItemsInMainHand, boostedArmorItems, preventCropResizePayment, payItemDurabilityLoss,
+	boostedItemsInOffHand = false, boostedItemsInMainHand, boostedArmorItems/*, preventCropResizePayment*/, payItemDurabilityLoss,
 	applyToNegativeIncome, useMinimumOveralPayment, useMinimumOveralPoints, useBreederFinder,
 	CancelCowMilking, fixAtMaxLevel, TitleChangeChat, TitleChangeActionBar, LevelChangeChat,
 	LevelChangeActionBar, SoundLevelupUse, SoundTitleChangeUse, UseServerAccount, EmptyServerAccountChat,
@@ -109,7 +102,7 @@ public class GeneralConfigManager {
 
     public Parser DynamicPaymentEquation;
 
-    public HashMap<String, List<String>> getCommandArgs() {
+    public Map<String, List<String>> getCommandArgs() {
 	return commandArgs;
     }
 
@@ -452,8 +445,8 @@ public class GeneralConfigManager {
 	addXpPlayer = c.get("add-xp-player", false);
 
 	if (Version.isCurrentEqualOrHigher(Version.v1_9_R1)) {
-		c.addComment("enable-boosted-items-in-offhand", "Do the jobs boost ignore the boosted items usage in off hand?");
-		boostedItemsInOffHand = c.get("enable-boosted-items-in-offhand", true);
+	    c.addComment("enable-boosted-items-in-offhand", "Do the jobs boost ignore the boosted items usage in off hand?");
+	    boostedItemsInOffHand = c.get("enable-boosted-items-in-offhand", true);
 	}
 
 	c.addComment("enable-boosted-items-in-mainhand", "Do the jobs boost ignore the boosted items usage in main hand?");
@@ -462,9 +455,10 @@ public class GeneralConfigManager {
 	c.addComment("enable-boosted-armor-items", "Do the jobs boost ignore the boosted items usage in armor slots?");
 	boostedArmorItems = c.get("enable-boosted-armor-items", true);
 
-	c.addComment("prevent-crop-resize-payment", "Do you want to prevent crop resizing payment when placing more cactus?",
+	// Better implementation?
+	/*c.addComment("prevent-crop-resize-payment", "Do you want to prevent crop resizing payment when placing more cactus?",
 	    "This option is only related to: sugar_cane, cactus, kelp, bamboo");
-	preventCropResizePayment = c.get("prevent-crop-resize-payment", false);
+	preventCropResizePayment = c.get("prevent-crop-resize-payment", false);*/
 
 	c.addComment("pay-for-stacked-entities", "Allows to pay for stacked entities for each one. Requires StackMob or WildStacker.");
 	payForStackedEntities = c.get("pay-for-stacked-entities", false);
@@ -480,14 +474,21 @@ public class GeneralConfigManager {
 	whiteListedItems.clear();
 
 	for (String one : tempList) {
-	    String mname = one.contains("=") ? one.split("=")[0] : one;
-	    String ench = one.contains("=") ? one.split("=")[1] : null;
-	    String value = ench != null && ench.contains("-") ? ench.split("-")[1] : null;
+	    String mName = one;
+	    String ench = null;
+
+	    if (one.contains("=")) {
+		String[] split = one.split("=", 2);
+		mName = split[0];
+		ench = split[1];
+	    }
+
+	    String value = ench != null && ench.contains("-") ? ench.split("-", 2)[1] : null;
 	    if (value != null && ench != null) {
 		ench = ench.substring(0, ench.length() - (value.length() + 1));
 	    }
 
-	    CMIMaterial mat = CMIMaterial.get(mname);
+	    CMIMaterial mat = CMIMaterial.get(mName);
 	    if (mat == CMIMaterial.NONE) {
 		Jobs.consoleMsg("Failed to recognize " + one + " entry from config file");
 		continue;
@@ -504,11 +505,11 @@ public class GeneralConfigManager {
 	    } catch (NumberFormatException e) {
 	    }
 
-	    HashMap<Enchantment, Integer> submap = new HashMap<>();
+	    Map<Enchantment, Integer> subMap = new HashMap<>();
 	    if (enchant != null)
-		submap.put(enchant, level);
+		subMap.put(enchant, level);
 
-	    whiteListedItems.put(mat, submap);
+	    whiteListedItems.put(mat, subMap);
 	}
 
 	c.addComment("modify-chat", "Modifys chat to add chat titles. If you're using a chat manager, you may add the tag {jobs} to your chat format and disable this.");
@@ -865,14 +866,14 @@ public class GeneralConfigManager {
 	c.addComment("SendTitleMessageWhenMaxLevelReached", "Send title and chat message when a player reached the maximum level in a job.");
 	titleMessageMaxLevelReached = c.get("SendTitleMessageWhenMaxLevelReached", false);
 
-	c.addComment("Sounds", "Sounds", "Extra sounds on some events",
+	c.addComment("Sounds", "Extra sounds on some events",
 	    "All sounds can be found in https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html");
 	SoundLevelupUse = c.get("Sounds.LevelUp.use", true);
-	SoundLevelupSound = c.get("Sounds.LevelUp.sound", Version.isCurrentLower(Version.v1_9_R1) ? "LEVEL_UP " : "ENTITY_PLAYER_LEVELUP");
+	SoundLevelupSound = c.get("Sounds.LevelUp.sound", Version.isCurrentLower(Version.v1_9_R1) ? "LEVEL_UP " : "ENTITY_PLAYER_LEVELUP").toUpperCase();
 	SoundLevelupVolume = c.get("Sounds.LevelUp.volume", 1);
 	SoundLevelupPitch = c.get("Sounds.LevelUp.pitch", 3);
 	SoundTitleChangeUse = c.get("Sounds.TitleChange.use", true);
-	SoundTitleChangeSound = c.get("Sounds.TitleChange.sound", Version.isCurrentLower(Version.v1_9_R1) ? "LEVEL_UP " : "ENTITY_PLAYER_LEVELUP");
+	SoundTitleChangeSound = c.get("Sounds.TitleChange.sound", Version.isCurrentLower(Version.v1_9_R1) ? "LEVEL_UP " : "ENTITY_PLAYER_LEVELUP").toUpperCase();
 	SoundTitleChangeVolume = c.get("Sounds.TitleChange.volume", 1);
 	SoundTitleChangePitch = c.get("Sounds.TitleChange.pitch", 3);
 
@@ -883,12 +884,12 @@ public class GeneralConfigManager {
 	UseRandom = c.get("Fireworks.LevelUp.Random", true);
 	UseFlicker = c.get("Fireworks.LevelUp.flicker", true);
 	UseTrail = c.get("Fireworks.LevelUp.trail", true);
-	c.addComment("Fireworks.LevelUp.type", "Firework types",
+	c.addComment("Fireworks.LevelUp.type", "Firework type",
 	    "All types can be found in https://hub.spigotmc.org/javadocs/bukkit/org/bukkit/FireworkEffect.Type.html");
-	FireworkType = c.get("Fireworks.LevelUp.type", "STAR");
+	FireworkType = c.get("Fireworks.LevelUp.type", "STAR").toUpperCase();
 	FwColors = c.get("Fireworks.LevelUp.colors", Arrays.asList("230,0,0", "0,90,0", "0,0,104"));
 	FireworkPower = c.get("Fireworks.LevelUp.power", 1);
-	c.addComment("Fireworks.LevelUp.ShootTime", "Fire shooting time in ticks.", "Example: 20 tick = 1 second");
+	c.addComment("Fireworks.LevelUp.ShootTime", "Fire shooting time in ticks.", "20 tick = 1 second");
 	ShootTime = c.get("Fireworks.LevelUp.ShootTime", 20);
 
 	c.addComment("Signs", "You can disable this to save SMALL amount of server resources");
@@ -957,13 +958,13 @@ public class GeneralConfigManager {
 	jobsInfoOpensBrowse = c.get("Commands.JobsInfo.open-browse", false);
 
 	CMIMaterial tmat = CMIMaterial.get(c.get("JobsGUI.BackButton.Material", "JACK_O_LANTERN").toUpperCase());
-	guiBackButton = (tmat == null ? CMIMaterial.JACK_O_LANTERN : tmat).newItemStack();
+	guiBackButton = (tmat == CMIMaterial.NONE ? CMIMaterial.JACK_O_LANTERN : tmat).newItemStack();
 
 	tmat = CMIMaterial.get(c.get("JobsGUI.NextButton.Material", "ARROW").toUpperCase());
-	guiNextButton = (tmat == null ? CMIMaterial.ARROW : tmat).newItemStack();
+	guiNextButton = (tmat == CMIMaterial.NONE ? CMIMaterial.ARROW : tmat).newItemStack();
 
 	tmat = CMIMaterial.get(c.get("JobsGUI.Filler.Material", "GREEN_STAINED_GLASS_PANE").toUpperCase());
-	guiFiller = (tmat == null ? CMIMaterial.GREEN_STAINED_GLASS_PANE : tmat).newItemStack();
+	guiFiller = (tmat == CMIMaterial.NONE ? CMIMaterial.GREEN_STAINED_GLASS_PANE : tmat).newItemStack();
 
 	c.save();
     }

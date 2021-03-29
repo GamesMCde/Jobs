@@ -1,7 +1,5 @@
 package com.gamingmesh.jobs.commands.list;
 
-import java.util.HashMap;
-
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -15,40 +13,34 @@ public class explored implements Cmd {
 
     @Override
     public boolean perform(Jobs plugin, CommandSender sender, String[] args) {
-
 	if (!(sender instanceof Player))
 	    return false;
 
 	Player player = (Player) sender;
 
-	HashMap<String, ExploreRegion> worlds = Jobs.getExplore().getWorlds();
+	java.util.Map<String, ExploreRegion> worlds = Jobs.getExplore().getWorlds();
 
 	if (!worlds.containsKey(player.getWorld().getName())) {
-	    sender.sendMessage(Jobs.getLanguage().getMessage("command.explored.error.noexplore"));
+	    player.sendMessage(Jobs.getLanguage().getMessage("command.explored.error.noexplore"));
 	    return true;
 	}
 
-	ExploreRegion regions = worlds.get(player.getWorld().getName());
-
-	ExploreChunk chunk = regions.getChunk(player.getLocation().getChunk());
-
+	ExploreChunk chunk = worlds.get(player.getWorld().getName()).getChunk(player.getLocation().getChunk());
 	if (chunk == null) {
-	    sender.sendMessage(Jobs.getLanguage().getMessage("command.explored.error.noexplore"));
+	    player.sendMessage(Jobs.getLanguage().getMessage("command.explored.error.noexplore"));
 	    return false;
 	}
 	if (chunk.isFullyExplored() && Jobs.getGCManager().ExploreCompact) {
-	    sender.sendMessage(Jobs.getLanguage().getMessage("command.explored.fullExplore"));
+	    player.sendMessage(Jobs.getLanguage().getMessage("command.explored.fullExplore"));
 	    return true;
 	}
 
-	int i = 0;
-	for (Integer one : chunk.getPlayers()) {
-	    i++;
-	    PlayerInfo ji = Jobs.getPlayerManager().getPlayerInfo(one);
+	for (int i = 0; i < chunk.getPlayers().size(); i++) {
+	    PlayerInfo ji = Jobs.getPlayerManager().getPlayerInfo(chunk.getPlayers().get(i));
 	    if (ji != null)
-		sender.sendMessage(Jobs.getLanguage().getMessage("command.explored.list", "%place%", i, "%playername%", ji.getName()));
+		player.sendMessage(Jobs.getLanguage().getMessage("command.explored.list", "%place%", i, "%playername%", ji.getName()));
 	}
-	sender.sendMessage(Jobs.getLanguage().getMessage("general.info.separator"));
+	player.sendMessage(Jobs.getLanguage().getMessage("general.info.separator"));
 
 	return true;
     }

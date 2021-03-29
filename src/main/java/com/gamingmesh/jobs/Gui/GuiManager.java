@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -27,8 +26,14 @@ import com.gamingmesh.jobs.container.JobsPlayer;
 
 public class GuiManager {
 
+    private Jobs plugin;
+
+    public GuiManager(Jobs plugin) {
+	this.plugin = plugin;
+    }
+
     public void openJobsBrowseGUI(final Player player) {
-	ArrayList<Job> jobsList = new ArrayList<>();
+	List<Job> jobsList = new ArrayList<>();
 	for (Job job : Jobs.getJobs()) {
 	    if (Jobs.getGCManager().getHideJobsWithoutPermission())
 		if (!Jobs.getCommandManager().hasJobPermission(player, job))
@@ -82,11 +87,13 @@ public class GuiManager {
 		break main;
 
 	    Job job = jobsList.get(i);
-	    ArrayList<String> lore = new ArrayList<>();
+	    List<String> lore = new ArrayList<>();
 
 	    for (JobProgression onePJob : jPlayer.getJobProgression()) {
-		if (onePJob.getJob().getName().equalsIgnoreCase(job.getName()))
+		if (onePJob.getJob().getName().equalsIgnoreCase(job.getName())) {
 		    lore.add(Jobs.getLanguage().getMessage("command.info.gui.working"));
+		    break;
+		}
 	    }
 
 	    int maxlevel = job.getMaxLevel(jPlayer);
@@ -103,15 +110,14 @@ public class GuiManager {
 		    lore.add(Jobs.getLanguage().getMessage("command.browse.output.bonus", "[amount]", (int) (job.getBonus() * 100)));
 
 	    if (job.getDescription().isEmpty()) {
-		for (String desc : job.getFullDescription()) {
-		    lore.add(desc);
-		}
+		lore.addAll(job.getFullDescription());
 	    } else
 		lore.addAll(Arrays.asList(job.getDescription().split("/n|\\n")));
 
-	    if (job.getMaxSlots() != null)
-		lore.add(Jobs.getLanguage().getMessage("command.info.gui.leftSlots") + ((job.getMaxSlots() - Jobs.getUsedSlots(job)) > 0 ? (job.getMaxSlots() - Jobs
-		    .getUsedSlots(job)) : 0));
+	    if (job.getMaxSlots() != null) {
+		int usedSlots = Jobs.getUsedSlots(job);
+		lore.add(Jobs.getLanguage().getMessage("command.info.gui.leftSlots") + ((job.getMaxSlots() - usedSlots) > 0 ? (job.getMaxSlots() - usedSlots) : 0));
+	    }
 
 	    if (Jobs.getGCManager().ShowActionNames) {
 		lore.add("");
@@ -133,12 +139,11 @@ public class GuiManager {
 
 	    ItemStack guiItem = job.getGuiItem();
 	    ItemMeta meta = guiItem.getItemMeta();
-	    meta.setDisplayName(job.getNameWithColor());
-	    meta.setLore(lore);
+	    plugin.getComplement().setDisplayName(meta, job.getNameWithColor());
+	    plugin.getComplement().setLore(meta, lore);
 	    guiItem.setItemMeta(meta);
 
-	    int lastPos = job.getGuiSlot() >= 0 ? job.getGuiSlot() : pos;
-	    gui.addButton(new CMIGuiButton(lastPos, guiItem) {
+	    gui.addButton(new CMIGuiButton(job.getGuiSlot() >= 0 ? job.getGuiSlot() : pos, guiItem) {
 
 		@Override
 		public void click(GUIClickType type) {
@@ -190,7 +195,7 @@ public class GuiManager {
     }
 
     public void openJobsBrowseGUI(Player player, Job job, boolean fromCommand) {
-	Inventory tempInv = Bukkit.createInventory(player, 54, "");
+	Inventory tempInv = plugin.getComplement().createInventory(player, 54, "");
 
 	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
 	Boost boost = Jobs.getPlayerManager().getFinalBonus(jPlayer, job);
@@ -210,7 +215,7 @@ public class GuiManager {
 	    if (info == null || info.isEmpty())
 		continue;
 
-	    ArrayList<String> lore = new ArrayList<>();
+	    List<String> lore = new ArrayList<>();
 	    lore.add(Jobs.getLanguage().getMessage("command.info.output." + actionType.getName().toLowerCase() + ".info"));
 
 	    int y = 1;
@@ -263,8 +268,8 @@ public class GuiManager {
 			continue;
 
 		    ItemMeta meta = guiItem.getItemMeta();
-		    meta.setDisplayName(job.getNameWithColor());
-		    meta.setLore(lore);
+		    plugin.getComplement().setDisplayName(meta, job.getNameWithColor());
+		    plugin.getComplement().setLore(meta, lore);
 		    guiItem.setItemMeta(meta);
 		    tempInv.setItem(i, guiItem.clone());
 
@@ -283,8 +288,8 @@ public class GuiManager {
 	    }
 
 	    ItemMeta meta = guiItem.getItemMeta();
-	    meta.setDisplayName(job.getNameWithColor());
-	    meta.setLore(lore);
+	    plugin.getComplement().setDisplayName(meta, job.getNameWithColor());
+	    plugin.getComplement().setLore(meta, lore);
 	    guiItem.setItemMeta(meta);
 	    tempInv.setItem(i, guiItem.clone());
 	    i++;
@@ -315,7 +320,7 @@ public class GuiManager {
 	    ItemStack back = Jobs.getGCManager().guiBackButton;
 	    ItemMeta meta = back.getItemMeta();
 
-	    meta.setDisplayName(Jobs.getLanguage().getMessage("command.info.gui.back"));
+	    plugin.getComplement().setDisplayName(meta, Jobs.getLanguage().getMessage("command.info.gui.back"));
 	    back.setItemMeta(meta);
 
 	    gui.addButton(new CMIGuiButton(backButton, back) {
@@ -330,7 +335,7 @@ public class GuiManager {
 	ItemStack next = Jobs.getGCManager().guiNextButton;
 	ItemMeta meta = next.getItemMeta();
 
-	meta.setDisplayName(Jobs.getLanguage().getMessage("command.info.gui.next"));
+	plugin.getComplement().setDisplayName(meta, Jobs.getLanguage().getMessage("command.info.gui.next"));
 	next.setItemMeta(meta);
 
 	gui.addButton(new CMIGuiButton(nextButton, next) {
@@ -346,7 +351,7 @@ public class GuiManager {
     }
 
     private void openJobsBrowseGUI(Player player, Job job, List<ActionType> jobsRemained) {
-	Inventory tempInv = Bukkit.createInventory(player, 54, "");
+	Inventory tempInv = plugin.getComplement().createInventory(player, 54, "");
 
 	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
 	Boost boost = Jobs.getPlayerManager().getFinalBonus(jPlayer, job);
@@ -361,7 +366,7 @@ public class GuiManager {
 	    if (info == null || info.isEmpty())
 		continue;
 
-	    ArrayList<String> lore = new ArrayList<>();
+	    List<String> lore = new ArrayList<>();
 	    lore.add(Jobs.getLanguage().getMessage("command.info.output." + actionType.getName().toLowerCase() + ".info"));
 
 	    int y = 1;
@@ -414,8 +419,8 @@ public class GuiManager {
 		    }
 
 		    ItemMeta meta = guiItem.getItemMeta();
-		    meta.setDisplayName(job.getNameWithColor());
-		    meta.setLore(lore);
+		    plugin.getComplement().setDisplayName(meta, job.getNameWithColor());
+		    plugin.getComplement().setLore(meta, lore);
 		    guiItem.setItemMeta(meta);
 		    tempInv.setItem(i, guiItem.clone());
 
@@ -433,8 +438,8 @@ public class GuiManager {
 	    }
 
 	    ItemMeta meta = guiItem.getItemMeta();
-	    meta.setDisplayName(job.getNameWithColor());
-	    meta.setLore(lore);
+	    plugin.getComplement().setDisplayName(meta, job.getNameWithColor());
+	    plugin.getComplement().setLore(meta, lore);
 	    guiItem.setItemMeta(meta);
 	    tempInv.setItem(i, guiItem.clone());
 	    i++;
@@ -465,7 +470,7 @@ public class GuiManager {
 	ItemStack skull = Jobs.getGCManager().guiBackButton;
 	ItemMeta skullMeta = skull.getItemMeta();
 
-	skullMeta.setDisplayName(Jobs.getLanguage().getMessage("command.info.gui.back"));
+	plugin.getComplement().setDisplayName(skullMeta, Jobs.getLanguage().getMessage("command.info.gui.back"));
 	skull.setItemMeta(skullMeta);
 
 	gui.addButton(new CMIGuiButton(backButton, skull) {

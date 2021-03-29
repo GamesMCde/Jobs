@@ -24,7 +24,7 @@ public class placeholders implements Cmd {
 	    if (sender instanceof Player && args[0].startsWith("-p:")) {
 		try {
 		    page = Integer.parseInt(args[0].substring("-p:".length()));
-		} catch (Throwable e) {
+		} catch (Exception e) {
 		}
 	    } else if (!(sender instanceof Player)) {
 		player = Bukkit.getPlayer(args[0]);
@@ -64,13 +64,12 @@ public class placeholders implements Cmd {
 
 	    if (player != null && !one.isComplex())
 		extra = plugin.getPlaceholderAPIManager().updatePlaceHolders(player, Jobs.getLanguage().getMessage("command.placeholders.output.outputResult",
-		    "[result]", Jobs.getInstance().getPlaceholderAPIManager().updatePlaceHolders(player, one.getFull())));
+		    "[result]", plugin.getPlaceholderAPIManager().updatePlaceHolders(player, one.getFull())));
 
 	    String place = one.getFull();
 	    String hover = "";
 	    if (plugin.isPlaceholderAPIEnabled()) {
-		place = one.getFull();
-		hover = one.getFull();
+		hover = place = one.getFull();
 	    }
 //	    For MVdWPlaceholderAPI
 //	    if (plugin.isMVdWPlaceholderAPIEnabled()) {

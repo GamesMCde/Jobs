@@ -49,8 +49,8 @@ public class Job {
     private List<JobCommands> jobCommands;
     private List<JobConditions> jobConditions;
 
-    private HashMap<String, JobItems> jobItems;
-    private HashMap<String, JobLimitedItems> jobLimitedItems;
+    private Map<String, JobItems> jobItems;
+    private Map<String, JobLimitedItems> jobLimitedItems;
 
     private String jobName = "N/A";
     private String fullName = "N/A";
@@ -93,18 +93,19 @@ public class Job {
 
     @Deprecated
     public Job(String jobName, String fullName, String jobShortName, String description, CMIChatColor jobColour, Parser maxExpEquation, DisplayMethod displayMethod, int maxLevel,
-	int vipmaxLevel, Integer maxSlots, List<JobPermission> jobPermissions, List<JobCommands> jobCommands, List<JobConditions> jobConditions, HashMap<String, JobItems> jobItems,
-	HashMap<String, JobLimitedItems> jobLimitedItems, List<String> cmdOnJoin, List<String> cmdOnLeave, ItemStack guiItem, int guiSlot, String bossbar, Long rejoinCD, List<String> worldBlacklist) {
+	int vipmaxLevel, Integer maxSlots, List<JobPermission> jobPermissions, List<JobCommands> jobCommands, List<JobConditions> jobConditions, Map<String, JobItems> jobItems,
+	Map<String, JobLimitedItems> jobLimitedItems, List<String> cmdOnJoin, List<String> cmdOnLeave, ItemStack guiItem, int guiSlot, String bossbar, Long rejoinCD, List<String> worldBlacklist) {
 	this(jobName, fullName, jobShortName, jobColour, maxExpEquation, displayMethod, maxLevel,
-	    vipmaxLevel, maxSlots, jobPermissions, jobCommands, jobConditions, jobItems,
-	    jobLimitedItems, cmdOnJoin, cmdOnLeave, guiItem, guiSlot, bossbar, rejoinCD, worldBlacklist);
+	    vipmaxLevel, maxSlots, jobPermissions, jobCommands, jobConditions,
+	    jobLimitedItems, cmdOnJoin, cmdOnLeave, guiItem, guiSlot, worldBlacklist);
 
+	this.jobItems = jobItems;
 	this.description = description;
     }
 
     public Job(String jobName, String fullName, String jobShortName, CMIChatColor jobColour, Parser maxExpEquation, DisplayMethod displayMethod, int maxLevel,
-	int vipmaxLevel, Integer maxSlots, List<JobPermission> jobPermissions, List<JobCommands> jobCommands, List<JobConditions> jobConditions, HashMap<String, JobItems> jobItems,
-	HashMap<String, JobLimitedItems> jobLimitedItems, List<String> cmdOnJoin, List<String> cmdOnLeave, ItemStack guiItem, int guiSlot, String bossbar, Long rejoinCD, List<String> worldBlacklist) {
+	int vipmaxLevel, Integer maxSlots, List<JobPermission> jobPermissions, List<JobCommands> jobCommands, List<JobConditions> jobConditions,
+	Map<String, JobLimitedItems> jobLimitedItems, List<String> cmdOnJoin, List<String> cmdOnLeave, ItemStack guiItem, int guiSlot, List<String> worldBlacklist) {
 	this.jobName = jobName == null ? "" : jobName;
 	this.fullName = fullName == null ? "" : fullName;
 	this.jobShortName = jobShortName;
@@ -117,14 +118,11 @@ public class Job {
 	this.jobPermissions = jobPermissions;
 	this.jobCommands = jobCommands;
 	this.jobConditions = jobConditions;
-	this.jobItems = jobItems;
 	this.jobLimitedItems = jobLimitedItems;
 	this.cmdOnJoin = cmdOnJoin;
 	this.cmdOnLeave = cmdOnLeave;
 	this.guiItem = guiItem;
 	this.guiSlot = guiSlot;
-	this.bossbar = bossbar;
-	this.rejoinCd = rejoinCD;
 
 	if (worldBlacklist != null) {
 	    this.worldBlacklist = worldBlacklist;
@@ -145,9 +143,17 @@ public class Job {
 	final Calendar cal = Calendar.getInstance();
 	cal.setTime(new Date());
 
-	cal.set(Calendar.HOUR_OF_DAY, cal.get(Calendar.HOUR_OF_DAY) + h);
-	cal.set(Calendar.MINUTE, cal.get(Calendar.MINUTE) + m);
-	cal.set(Calendar.SECOND, cal.get(Calendar.SECOND) + s);
+	if (h > 0) {
+	    cal.set(Calendar.HOUR_OF_DAY, cal.get(Calendar.HOUR_OF_DAY) + h);
+	}
+
+	if (m > 0) {
+	    cal.set(Calendar.MINUTE, cal.get(Calendar.MINUTE) + m);
+	}
+
+	if (s > 0) {
+	    cal.set(Calendar.SECOND, cal.get(Calendar.SECOND) + s);
+	}
 
 	boost.add(type, point, cal.getTimeInMillis());
     }
@@ -161,7 +167,7 @@ public class Job {
     }
 
     public boolean isSame(Job job) {
-	return job != null && (getName().equalsIgnoreCase(job.getName()) || id == job.getId());
+	return job != null && (fullName.equalsIgnoreCase(job.getName()) || id == job.getId());
     }
 
     public int getTotalPlayers() {
@@ -428,7 +434,7 @@ public class Job {
      * @return Items for this job
      */
     @Deprecated
-    public HashMap<String, JobItems> getItemBonus() {
+    public Map<String, JobItems> getItemBonus() {
 	if (jobItems == null)
 	    jobItems = new HashMap<String, JobItems>();
 	return jobItems;
@@ -443,7 +449,7 @@ public class Job {
      * Get the limited item nodes for this job
      * @return Limited items for this job
      */
-    public HashMap<String, JobLimitedItems> getLimitedItems() {
+    public Map<String, JobLimitedItems> getLimitedItems() {
 	return jobLimitedItems;
     }
 
@@ -563,6 +569,8 @@ public class Job {
     }
 
     public void setId(int id) {
+	Jobs.getJobsIds().remove(this.id);
+
 	this.id = id;
 	if (id != 0)
 	    Jobs.getJobsIds().put(id, this);

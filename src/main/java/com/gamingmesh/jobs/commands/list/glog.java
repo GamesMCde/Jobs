@@ -46,7 +46,7 @@ public class glog implements Cmd {
 		    if (jPlayer == null)
 			continue;
 
-		    HashMap<String, Log> logList = jPlayer.getLog();
+		    Map<String, Log> logList = jPlayer.getLog();
 		    if (logList == null || logList.isEmpty())
 			continue;
 
@@ -114,7 +114,6 @@ public class glog implements Cmd {
 		    "%exp%", format.format(totalExp), "%points%", format.format(totalPoints)));
 
 		sender.sendMessage(Jobs.getLanguage().getMessage("command.glog.output.bottomline"));
-		return;
 	    }
 	});
 	return true;

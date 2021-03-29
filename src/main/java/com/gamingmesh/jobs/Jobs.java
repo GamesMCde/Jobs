@@ -48,8 +48,13 @@ import com.gamingmesh.jobs.listeners.JobsPaymentListener;
 import com.gamingmesh.jobs.listeners.PistonProtectionListener;
 import com.gamingmesh.jobs.selection.SelectionManager;
 import com.gamingmesh.jobs.stuff.*;
+import com.gamingmesh.jobs.stuff.complement.JobsChatEvent;
+import com.gamingmesh.jobs.stuff.complement.Complement;
+import com.gamingmesh.jobs.stuff.complement.Complement1;
+import com.gamingmesh.jobs.stuff.complement.Complement2;
 import com.gamingmesh.jobs.tasks.BufferedPaymentThread;
 import com.gamingmesh.jobs.tasks.DatabaseSaveThread;
+
 import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
@@ -72,10 +77,8 @@ public class Jobs extends JavaPlugin {
     private static Language lManager;
     private static LanguageManager lmManager;
     private static SignUtil signManager;
-    private CMIScoreboardManager cmiScoreboardManager;
     private static ScheduleManager scheduleManager;
     private static NameTranslatorManager nameTranslatorManager;
-    private static GuiManager guiManager;
     private static ExploreManager exploreManager;
     private static TitleManager titleManager;
     private static RestrictedBlockManager rbManager;
@@ -85,40 +88,42 @@ public class Jobs extends JavaPlugin {
     private static Loging loging;
     private static BlockProtectionManager bpManager;
     private static JobsManager dbManager;
-
-    private final Set<BlockOwnerShip> blockOwnerShips = new HashSet<>();
-
-    private static PistonProtectionListener pistonProtectionListener;
-
     private static ConfigManager configManager;
     private static GeneralConfigManager gConfigManager;
-
     private static CMIReflections reflections;
-
-    private static JobsDAO dao;
-    private static List<Job> jobs;
-    private static Job noneJob;
-    private static WeakHashMap<Job, Integer> usedSlots = new WeakHashMap<>();
-    private static Map<Integer, Job> jobsIds = new HashMap<>();
-
     private static BufferedEconomy economy;
     private static PermissionHandler permissionHandler;
     private static PermissionManager permissionManager;
 
+    private final Set<BlockOwnerShip> blockOwnerShips = new HashSet<>();
+
+    private CMIScoreboardManager cmiScoreboardManager;
+    private Complement complement;
+    private GuiManager guiManager;
+
+    private static JobsDAO dao;
+    private static List<Job> jobs;
+    private static Job noneJob;
+    private static Map<Job, Integer> usedSlots = new WeakHashMap<>();
+    private static Map<Integer, Job> jobsIds = new HashMap<>();
+
     public static BufferedPaymentThread paymentThread;
     private static DatabaseSaveThread saveTask;
 
-    public static final HashMap<UUID, FastPayment> FASTPAYMENT = new HashMap<>();
+    public static final Map<UUID, FastPayment> FASTPAYMENT = new HashMap<>();
 
     private static NMS nms;
 
     protected static VersionChecker versionCheckManager;
-
     protected static SelectionManager smanager;
 
     private static PointsData pointsDatabase;
 
-    /**
+    public Complement getComplement() {
+	return complement;
+    }
+
+	/**
      * Returns the block owner ship for specific {@link CMIMaterial} type.
      * 
      * @param type {@link CMIMaterial}
@@ -148,8 +153,7 @@ public class Jobs extends JavaPlugin {
 	}
 
 	if (addNew && b == null) {
-	    b = new BlockOwnerShip(type);
-	    blockOwnerShips.add(b);
+	    blockOwnerShips.add(b = new BlockOwnerShip(type));
 	}
 
 	return Optional.ofNullable(b);
@@ -176,12 +180,6 @@ public class Jobs extends JavaPlugin {
      */
     public Set<BlockOwnerShip> getBlockOwnerShips() {
 	return blockOwnerShips;
-    }
-
-    public static PistonProtectionListener getPistonProtectionListener() {
-	if (pistonProtectionListener == null)
-	    pistonProtectionListener = new PistonProtectionListener();
-	return pistonProtectionListener;
     }
 
     private Placeholder placeholder;
@@ -244,7 +242,7 @@ public class Jobs extends JavaPlugin {
 
     public static ShopManager getShopManager() {
 	if (shopManager == null) {
-	    shopManager = new ShopManager();
+	    shopManager = new ShopManager(instance);
 	}
 	return shopManager;
     }
@@ -270,7 +268,7 @@ public class Jobs extends JavaPlugin {
      */
     public static PlayerManager getPlayerManager() {
 	if (pManager == null)
-	    pManager = new PlayerManager();
+	    pManager = new PlayerManager(instance);
 	return pManager;
     }
 
@@ -288,16 +286,6 @@ public class Jobs extends JavaPlugin {
 	}
 
 	return raManager;
-    }
-
-    /**
-     * @deprecated miss named
-     * @see #getTitleManager()
-     * @return
-     */
-    @Deprecated
-    public static TitleManager gettitleManager() {
-	return getTitleManager();
     }
 
     /**
@@ -321,7 +309,7 @@ public class Jobs extends JavaPlugin {
      */
     public static ScheduleManager getScheduleManager() {
 	if (scheduleManager == null) {
-	    scheduleManager = new ScheduleManager(getInstance());
+	    scheduleManager = new ScheduleManager(instance);
 	}
 
 	return scheduleManager;
@@ -335,15 +323,15 @@ public class Jobs extends JavaPlugin {
 	return nameTranslatorManager;
     }
 
-    public static GuiManager getGUIManager() {
+    public GuiManager getGUIManager() {
 	if (guiManager == null)
-	    guiManager = new GuiManager();
+	    guiManager = new GuiManager(this);
 	return guiManager;
     }
 
     public static JobsCommands getCommandManager() {
 	if (cManager == null) {
-	    cManager = new JobsCommands(getInstance());
+	    cManager = new JobsCommands(instance);
 	}
 	return cManager;
     }
@@ -365,8 +353,15 @@ public class Jobs extends JavaPlugin {
 	return cmiScoreboardManager;
     }
 
+    // TODO Get rid of this entirely from project
+    // There are better implementations than this
     protected static Jobs instance;
 
+    /**
+     * This shouldn't be used.
+     * @return returns this class object instance
+     */
+    @Deprecated
     public static Jobs getInstance() {
 	return instance;
     }
@@ -377,7 +372,7 @@ public class Jobs extends JavaPlugin {
      */
     public static SignUtil getSignUtil() {
 	if (signManager == null) {
-	    signManager = new SignUtil();
+	    signManager = new SignUtil(instance);
 	}
 
 	return signManager;
@@ -389,7 +384,7 @@ public class Jobs extends JavaPlugin {
      */
     public static Language getLanguage() {
 	if (lManager == null)
-	    lManager = new Language(instance);
+	    lManager = new Language();
 	return lManager;
     }
 
@@ -410,9 +405,8 @@ public class Jobs extends JavaPlugin {
     }
 
     public static File getFolder() {
-	File folder = getInstance().getDataFolder();
-	if (!folder.exists())
-	    folder.mkdirs();
+	File folder = instance.getDataFolder();
+	folder.mkdirs();
 	return folder;
     }
 
@@ -511,12 +505,12 @@ public class Jobs extends JavaPlugin {
 	return CompletableFuture.supplyAsync(() -> {
 	    long time = System.currentTimeMillis();
 	    // Cloning to avoid issues
-	    HashMap<UUID, PlayerInfo> temp = new HashMap<>(getPlayerManager().getPlayersInfoUUIDMap());
-	    HashMap<Integer, List<JobsDAOData>> playersJobs = dao.getAllJobs();
-	    HashMap<Integer, PlayerPoints> playersPoints = dao.getAllPoints();
-	    HashMap<Integer, HashMap<String, Log>> playersLogs = dao.getAllLogs();
-	    HashMap<Integer, ArchivedJobs> playersArchives = dao.getAllArchivedJobs();
-	    HashMap<Integer, PaymentData> playersLimits = dao.loadPlayerLimits();
+	    Map<UUID, PlayerInfo> temp = new HashMap<>(getPlayerManager().getPlayersInfoUUIDMap());
+	    Map<Integer, List<JobsDAOData>> playersJobs = dao.getAllJobs();
+	    Map<Integer, PlayerPoints> playersPoints = dao.getAllPoints();
+	    Map<Integer, Map<String, Log>> playersLogs = dao.getAllLogs();
+	    Map<Integer, ArchivedJobs> playersArchives = dao.getAllArchivedJobs();
+	    Map<Integer, PaymentData> playersLimits = dao.loadPlayerLimits();
 	    for (Iterator<PlayerInfo> it = temp.values().iterator(); it.hasNext();) {
 		PlayerInfo one = it.next();
 		int id = one.getID();
@@ -580,7 +574,7 @@ public class Jobs extends JavaPlugin {
 	boolean found = false;
 
 	for (JobProgression prog : jPlayer.getJobProgression()) {
-	    for (JobInfo info : jPlayer.getJobProgression(prog.getJob()).getJob().getJobInfo(type)) {
+	    for (JobInfo info : prog.getJob().getJobInfo(type)) {
 		if (info.getActionType() == type) {
 		    found = true;
 		    break;
@@ -652,7 +646,7 @@ public class Jobs extends JavaPlugin {
      * @param eco - the economy handler
      */
     public static void setEconomy(Economy eco) {
-	economy = new BufferedEconomy(getInstance(), eco);
+	economy = new BufferedEconomy(instance, eco);
     }
 
     /**
@@ -697,11 +691,8 @@ public class Jobs extends JavaPlugin {
 	placeholderAPIEnabled = setupPlaceHolderAPI();
 
 	try {
-	    YmlMaker jobShopItems = new YmlMaker(getFolder(), "shopItems.yml");
-	    jobShopItems.saveDefaultConfig();
-
-	    YmlMaker restrictedBlocks = new YmlMaker(getFolder(), "restrictedBlocks.yml");
-	    restrictedBlocks.saveDefaultConfig();
+	    new YmlMaker(getFolder(), "shopItems.yml").saveDefaultConfig();
+	    new YmlMaker(getFolder(), "restrictedBlocks.yml").saveDefaultConfig();
 
 	    bbManager = new BossBarManager(this);
 
@@ -713,8 +704,7 @@ public class Jobs extends JavaPlugin {
 	    startup();
 
 	    if (getGCManager().SignsEnabled) {
-		YmlMaker jobSigns = new YmlMaker(getFolder(), "Signs.yml");
-		jobSigns.saveDefaultConfig();
+		new YmlMaker(getFolder(), "Signs.yml").saveDefaultConfig();
 	    }
 
 	    // register the listeners
@@ -727,20 +717,33 @@ public class Jobs extends JavaPlugin {
 	    HookManager.loadHooks();
 
 	    if (getGCManager().useBlockProtection) {
-		getServer().getPluginManager().registerEvents(getPistonProtectionListener(), this);
+		getServer().getPluginManager().registerEvents(new PistonProtectionListener(), this);
 	    }
+
+	    boolean kyoriSupported = false;
+	    try {
+		Class.forName("net.kyori.adventure.text.Component");
+		kyoriSupported = true;
+	    } catch (ClassNotFoundException e) {
+	    }
+
+	    if (Version.isCurrentEqualOrHigher(Version.v1_16_R3) && kyoriSupported) {
+		complement = new Complement2();
+		//getServer().getPluginManager().registerEvents(new KyoriChatEvent(this), this);
+	    } else {
+		complement = new Complement1();
+	    }
+	    getServer().getPluginManager().registerEvents(new JobsChatEvent(this), this);
 
 	    // register economy
 	    Bukkit.getScheduler().runTask(this, new HookEconomyTask(this));
 
 	    dao.loadBlockProtection();
 	    getExplore().load();
+	    getCommandManager().fillCommands();
+	    getDBManager().getDB().triggerTableIdUpdate();
 
 	    consoleMsg("&e[Jobs] Plugin has been enabled successfully.");
-
-	    getCommandManager().fillCommands();
-
-	    getDBManager().getDB().triggerTableIdUpdate();
 	} catch (Throwable e) {
 	    e.printStackTrace();
 	    System.out.println("There was some issues when starting plugin. Please contact dev about this. Plugin will be disabled.");
@@ -755,7 +758,7 @@ public class Jobs extends JavaPlugin {
     public static void reload(boolean startup) {
 	// unregister all registered listeners by this plugin and register again
 	if (!startup) {
-	    org.bukkit.plugin.PluginManager pm = getInstance().getServer().getPluginManager();
+	    org.bukkit.plugin.PluginManager pm = instance.getServer().getPluginManager();
 
 	    HandlerList.unregisterAll(instance);
 
@@ -767,8 +770,10 @@ public class Jobs extends JavaPlugin {
 		pm.registerEvents(new JobsPayment14Listener(), instance);
 	    }
 
-	    if (getGCManager().useBlockProtection)
-		pm.registerEvents(getPistonProtectionListener(), instance);
+	    if (getGCManager().useBlockProtection) {
+		PistonProtectionListener pistonProtection = new PistonProtectionListener();
+		pm.registerEvents(pistonProtection, instance);
+	    }
 
 	    if (HookManager.getMcMMOManager().CheckmcMMO()) {
 		HookManager.setMcMMOlistener();
@@ -843,10 +848,6 @@ public class Jobs extends JavaPlugin {
 
 	if (dao != null) {
 	    dao.saveExplore();
-	}
-
-	if (bpManager != null) {
-	    bpManager.saveCache();
 	}
 
 	blockOwnerShips.forEach(BlockOwnerShip::save);
@@ -1043,7 +1044,7 @@ public class Jobs extends JavaPlugin {
 	    if (pointAmount != 0D)
 		jPlayer.setSaved(false);
 
-	    HashMap<CurrencyType, Double> payments = new HashMap<>();
+	    Map<CurrencyType, Double> payments = new HashMap<>();
 	    if (income != 0D)
 		payments.put(CurrencyType.MONEY, income);
 	    if (pointAmount != 0D)
@@ -1052,7 +1053,7 @@ public class Jobs extends JavaPlugin {
 	    economy.pay(jPlayer, payments);
 
 	    if (gConfigManager.LoggingUse) {
-		HashMap<CurrencyType, Double> amounts = new HashMap<>();
+		Map<CurrencyType, Double> amounts = new HashMap<>();
 		amounts.put(CurrencyType.MONEY, income);
 		getLoging().recordToLog(jPlayer, info, amounts);
 	    }
@@ -1080,9 +1081,9 @@ public class Jobs extends JavaPlugin {
 		    continue;
 		}
 
-		Double income = jobinfo.getIncome(level, numjobs, jPlayer.maxJobsEquation);
-		Double pointAmount = jobinfo.getPoints(level, numjobs, jPlayer.maxJobsEquation);
-		Double expAmount = jobinfo.getExperience(level, numjobs, jPlayer.maxJobsEquation);
+		double income = jobinfo.getIncome(level, numjobs, jPlayer.maxJobsEquation);
+		double pointAmount = jobinfo.getPoints(level, numjobs, jPlayer.maxJobsEquation);
+		double expAmount = jobinfo.getExperience(level, numjobs, jPlayer.maxJobsEquation);
 
 		if (income == 0D && pointAmount == 0D && expAmount == 0D)
 		    continue;
@@ -1096,10 +1097,10 @@ public class Jobs extends JavaPlugin {
 			 * That way jobs that give fractions of experience points will slowly give
 			 * experience in the aggregate
 			 */
-			int expInt = expAmount.intValue();
-			double remainder = expAmount.doubleValue() - expInt;
+			int expInt = (int) expAmount;
+			double remainder = expAmount - expInt;
 			if (Math.abs(remainder) > Math.random()) {
-			    if (expAmount.doubleValue() < 0)
+			    if (expAmount < 0)
 				expInt--;
 			    else
 				expInt++;
@@ -1203,7 +1204,7 @@ public class Jobs extends JavaPlugin {
 		    consoleMsg("&c[Jobs] Some issues with boss bar feature accured, try disabling it to avoid it.");
 		}
 
-		HashMap<CurrencyType, Double> payments = new HashMap<>();
+		Map<CurrencyType, Double> payments = new HashMap<>();
 		if (income != 0D)
 		    payments.put(CurrencyType.MONEY, income);
 		if (pointAmount != 0D)
@@ -1218,7 +1219,7 @@ public class Jobs extends JavaPlugin {
 		int oldLevel = prog.getLevel();
 
 		if (gConfigManager.LoggingUse) {
-		    HashMap<CurrencyType, Double> amounts = new HashMap<>();
+		    Map<CurrencyType, Double> amounts = new HashMap<>();
 		    amounts.put(CurrencyType.MONEY, income);
 		    amounts.put(CurrencyType.EXP, expAmount);
 		    amounts.put(CurrencyType.POINTS, pointAmount);
@@ -1265,7 +1266,7 @@ public class Jobs extends JavaPlugin {
 		    return true;
 		}
 
-		if (time > System.currentTimeMillis() || bp.isPaid() && bp.getAction() != DBAction.DELETE) {
+		if ((time > System.currentTimeMillis() || bp.isPaid()) && bp.getAction() != DBAction.DELETE) {
 		    int sec = Math.round((time - System.currentTimeMillis()) / 1000L);
 		    if (inform && player.canGetPaid(info)) {
 			ActionBarManager.send(player.getPlayer(), lManager.getMessage("message.blocktimer", "[time]", sec));
@@ -1294,7 +1295,7 @@ public class Jobs extends JavaPlugin {
 			return true;
 		    }
 
-		    if (time > System.currentTimeMillis() || bp.isPaid() && bp.getAction() != DBAction.DELETE) {
+		    if ((time > System.currentTimeMillis() || bp.isPaid()) && bp.getAction() != DBAction.DELETE) {
 			int sec = Math.round((time - System.currentTimeMillis()) / 1000L);
 			if (inform && player.canGetPaid(info)) {
 			    ActionBarManager.send(player.getPlayer(), lManager.getMessage("message.blocktimer", "[time]", sec));

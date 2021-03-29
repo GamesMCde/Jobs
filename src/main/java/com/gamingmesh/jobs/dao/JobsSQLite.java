@@ -1,8 +1,6 @@
 package com.gamingmesh.jobs.dao;
 
 import java.io.File;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -17,17 +15,14 @@ public class JobsSQLite extends JobsDAO {
     }
 
     public JobsSQLite initialize(File dir) {
-	if (!dir.exists())
-	    dir.mkdirs();
-
+	dir.mkdirs();
 	setUp();
 	return this;
     }
 
     JobsSQLite(Jobs plugin, File file) {
 	super(plugin, "org.sqlite.JDBC", "jdbc:sqlite:" + new File(file, "jobs.sqlite.db").getPath(), null, null, "");
-	if (!file.exists())
-	    file.mkdirs();
+	file.mkdirs();
 	setDbType(DataBaseType.SqLite);
     }
 
@@ -48,13 +43,13 @@ public class JobsSQLite extends JobsDAO {
 	JobsConnection conn = getConnection();
 	if (conn == null)
 	    return null;
-	PreparedStatement prest = null;
+
 	try {
-	    prest = conn.prepareStatement(query);
-	} catch (SQLException | NumberFormatException e) {
+	    return conn.prepareStatement(query);
+	} catch (SQLException e) {
 	    e.printStackTrace();
 	}
-	return prest;
+	return null;
     }
 
     @Override
@@ -79,10 +74,8 @@ public class JobsSQLite extends JobsDAO {
 
     @Override
     public boolean isTable(String table) {
-	DatabaseMetaData md = null;
 	try {
-	    md = getConnection().getMetaData();
-	    ResultSet tables = md.getTables(null, null, table, null);
+	    ResultSet tables = getConnection().getMetaData().getTables(null, null, table, null);
 	    if (tables.next()) {
 		tables.close();
 		return true;
@@ -97,10 +90,8 @@ public class JobsSQLite extends JobsDAO {
 
     @Override
     public boolean isCollumn(String table, String collumn) {
-	DatabaseMetaData md = null;
 	try {
-	    md = getConnection().getMetaData();
-	    ResultSet tables = md.getColumns(null, null, table, collumn);
+	    ResultSet tables = getConnection().getMetaData().getColumns(null, null, table, collumn);
 	    if (tables.next()) {
 		tables.close();
 		return true;

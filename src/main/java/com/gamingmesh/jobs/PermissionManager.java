@@ -32,7 +32,7 @@ import com.gamingmesh.jobs.container.JobsPlayer;
 
 public class PermissionManager {
 
-    private final HashMap<String, Integer> permDelay = new HashMap<>();
+    private final Map<String, Integer> permDelay = new HashMap<>();
 
     private enum prm {
 //	jobs_join_JOBNAME(remade("jobs.join.%JOBNAME%"), 60 * 1000),
@@ -61,7 +61,7 @@ public class PermissionManager {
 	private int reload;
 	private List<String> perms;
 
-	private prm(List<String> perms, int reload) {
+	prm(List<String> perms, int reload) {
 	    this.perms = perms;
 	    this.reload = reload * 1000;
 	}
@@ -82,9 +82,7 @@ public class PermissionManager {
 	    }
 	    if (perm.contains("%WORLDNAME%"))
 		for (World oneJ : Bukkit.getWorlds()) {
-		    String t = perm;
-		    t = t.replace("%WORLDNAME%", oneJ.getName().toLowerCase());
-		    perms.add(t);
+		    perms.add(perm.replace("%WORLDNAME%", oneJ.getName().toLowerCase()));
 		}
 	    return perms;
 	}
@@ -106,8 +104,8 @@ public class PermissionManager {
 	}
     }
 
-    private static HashMap<String, Boolean> getAll(Player player) {
-	HashMap<String, Boolean> mine = new HashMap<>();
+    private static Map<String, Boolean> getAll(Player player) {
+	Map<String, Boolean> mine = new HashMap<>();
 	for (PermissionAttachmentInfo permission : player.getEffectivePermissions()) {
 	    if (permission.getPermission().startsWith("jobs."))
 		mine.put(permission.getPermission(), permission.getValue());
@@ -160,7 +158,7 @@ public class PermissionManager {
 	if (!perm.endsWith("."))
 	    perm += ".";
 
-	HashMap<String, Boolean> permissions = jPlayer.getPermissionsCache();
+	Map<String, Boolean> permissions = jPlayer.getPermissionsCache();
 	if (force || permissions == null || getDelay(perm) + jPlayer.getLastPermissionUpdate() < System.currentTimeMillis()) {
 	    permissions = getAll(jPlayer.getPlayer());
 	    jPlayer.setPermissionsCache(permissions);
@@ -190,7 +188,7 @@ public class PermissionManager {
 	if (jPlayer == null || jPlayer.getPlayer() == null)
 	    return false;
 
-	HashMap<String, Boolean> permissions = jPlayer.getPermissionsCache();
+	Map<String, Boolean> permissions = jPlayer.getPermissionsCache();
 	if (permissions == null || getDelay(perm) + jPlayer.getLastPermissionUpdate() < System.currentTimeMillis()) {
 	    permissions = getAll(jPlayer.getPlayer());
 	    jPlayer.setPermissionsCache(permissions);

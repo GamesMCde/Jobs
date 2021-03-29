@@ -5,8 +5,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import java.util.Map.Entry;
 
 import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
@@ -26,7 +26,9 @@ public class BlockOwnerShip {
 	private BlockTypes type;
 	private String metadataName = "";
 
-	private final HashMap<UUID, List<blockLoc>> blockOwnerShips = new HashMap<>();
+	private final Map<UUID, List<blockLoc>> blockOwnerShips = new HashMap<>();
+
+	private final Jobs plugin = org.bukkit.plugin.java.JavaPlugin.getPlugin(Jobs.class);
 
 	public BlockOwnerShip(CMIMaterial type) {
 		// Type should be any type of furnace, smoker or brewing stand
@@ -37,9 +39,8 @@ public class BlockOwnerShip {
 		}
 
 		material = type;
-		this.type = BlockTypes.getFromCMIMaterial(type);
 
-		switch (this.type) {
+		switch (this.type = BlockTypes.getFromCMIMaterial(type)) {
 		case BLAST_FURNACE:
 			metadataName = "jobsBlastFurnaceOwner";
 			break;
@@ -69,7 +70,7 @@ public class BlockOwnerShip {
 		return metadataName;
 	}
 
-	public HashMap<UUID, List<blockLoc>> getBlockOwnerShips() {
+	public Map<UUID, List<blockLoc>> getBlockOwnerShips() {
 		return blockOwnerShips;
 	}
 
@@ -111,7 +112,7 @@ public class BlockOwnerShip {
 		if (have >= max && max > 0)
 			return ownershipFeedback.tooMany;
 
-		block.setMetadata(metadataName, new FixedMetadataValue(Jobs.getInstance(), player.getUniqueId().toString()));
+		block.setMetadata(metadataName, new FixedMetadataValue(plugin, player.getUniqueId().toString()));
 
 		if (!Jobs.getGCManager().isBrewingStandsReassign() && !Jobs.getGCManager().isFurnacesReassign()
 				&& !Jobs.getGCManager().BlastFurnacesReassign && !Jobs.getGCManager().SmokerReassign) {
@@ -140,7 +141,7 @@ public class BlockOwnerShip {
 		List<blockLoc> ls = blockOwnerShips.getOrDefault(uuid, new ArrayList<>());
 		for (blockLoc one : ls) {
 			if (one.getLocation().equals(block.getLocation())) {
-				block.removeMetadata(metadataName, Jobs.getInstance());
+				block.removeMetadata(metadataName, plugin);
 				ls.remove(one);
 				return true;
 			}
@@ -155,7 +156,7 @@ public class BlockOwnerShip {
 			return 0;
 
 		for (blockLoc one : ls) {
-			one.getBlock().removeMetadata(metadataName, Jobs.getInstance());
+			one.getBlock().removeMetadata(metadataName, plugin);
 		}
 
 		return ls.size();
@@ -209,8 +210,8 @@ public class BlockOwnerShip {
 				if (block == null)
 					continue;
 
-				block.removeMetadata(metadataName, Jobs.getInstance());
-				block.setMetadata(metadataName, new FixedMetadataValue(Jobs.getInstance(), one));
+				block.removeMetadata(metadataName, plugin);
+				block.setMetadata(metadataName, new FixedMetadataValue(plugin, one));
 
 				blist.add(bl);
 				total++;
@@ -232,11 +233,13 @@ public class BlockOwnerShip {
 			f.getConfigFile().renameTo(new File(Jobs.getFolder(), "blockOwnerShips.yml"));
 		}
 
-		if (blockOwnerShips.isEmpty()) {
+		f = new YmlMaker(Jobs.getFolder(), "blockOwnerShips.yml");
+
+		if (blockOwnerShips.isEmpty() && f.getConfigFile().length() == 0L) {
+			f.getConfigFile().delete();
 			return;
 		}
 
-		f = new YmlMaker(Jobs.getFolder(), "blockOwnerShips.yml");
 		if (!f.exists())
 			f.createNewFile();
 
@@ -251,7 +254,7 @@ public class BlockOwnerShip {
 						: type == BlockTypes.BREWING_STAND ? "Brewing" : type == BlockTypes.SMOKER ? "Smoker" : "");
 		f.getConfig().set(path, null);
 
-		for (Entry<UUID, List<blockLoc>> one : blockOwnerShips.entrySet()) {
+		for (Map.Entry<UUID, List<blockLoc>> one : blockOwnerShips.entrySet()) {
 			String full = "";
 			for (blockLoc oneL : one.getValue()) {
 				if (!full.isEmpty())
