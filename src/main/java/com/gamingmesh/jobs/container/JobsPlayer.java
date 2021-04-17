@@ -700,12 +700,15 @@ public class JobsPlayer {
 	    maxLevel = job.getVipMaxLevel() > job.getMaxLevel() ? job.getVipMaxLevel() : job.getMaxLevel();
 	else
 	    maxLevel = job.getMaxLevel();
+
 	int tMax = Jobs.getPermissionManager().getMaxPermission(this, "jobs." + job.getName() + ".vipmaxlevel").intValue();
 	if (tMax > maxLevel)
 	    maxLevel = tMax;
+
 	tMax = Jobs.getPermissionManager().getMaxPermission(this, "jobs.all.vipmaxlevel").intValue();
 	if (tMax > maxLevel)
 	    maxLevel = tMax;
+
 	return maxLevel;
     }
 
@@ -739,8 +742,8 @@ public class JobsPlayer {
 		if (!builder.toString().isEmpty()) {
 		    builder.append(Jobs.getGCManager().modifyChatSeparator);
 		}
-		Title title = Jobs.getTitleManager().getTitle(prog.getLevel(), prog.getJob().getName());
-		processesChat(method, builder, prog.getLevel(), title, prog.getJob());
+		processesChat(method, builder, prog.getLevel(), Jobs.getTitleManager().getTitle(prog.getLevel(),
+		    prog.getJob().getName()), prog.getJob());
 	    }
 	} else {
 	    Job nonejob = Jobs.getNoneJob();
@@ -1083,8 +1086,7 @@ public class JobsPlayer {
 	if (qProg != null)
 	    g = new HashMap<>(qProg);
 
-	Map<String, QuestProgression> tmp = new HashMap<>();
-	for (Entry<String, QuestProgression> one : (new HashMap<>(g)).entrySet()) {
+	for (Entry<String, QuestProgression> one : new HashMap<>(g).entrySet()) {
 	    QuestProgression qp = one.getValue();
 
 	    if (qp.isEnded()) {
@@ -1098,8 +1100,7 @@ public class JobsPlayer {
 	    while (i <= job.getQuests().size()) {
 		++i;
 
-		List<String> currentQuests = new ArrayList<>(g.keySet());
-		Quest q = job.getNextQuest(currentQuests, getJobProgression(job).getLevel());
+		Quest q = job.getNextQuest(new ArrayList<>(g.keySet()), getJobProgression(job).getLevel());
 		if (q == null)
 		    continue;
 
@@ -1126,6 +1127,7 @@ public class JobsPlayer {
 
 	qProgression.put(job.getName(), g);
 
+	Map<String, QuestProgression> tmp = new HashMap<>();
 	for (QuestProgression oneJ : g.values()) {
 	    Quest q = oneJ.getQuest();
 	    if (q == null) {
@@ -1180,66 +1182,62 @@ public class JobsPlayer {
 	    return;
 
 	for (String one : qprog.split(";:;")) {
-	    try {
-		String jname = one.split(":")[0];
-		Job job = Jobs.getJob(jname);
-		if (job == null)
-		    continue;
+	    String jname = one.split(":", 2)[0];
+	    Job job = Jobs.getJob(jname);
+	    if (job == null)
+		continue;
 
-		one = one.substring(jname.length() + 1);
+	    one = one.substring(jname.length() + 1);
 
-		String qname = one.split(":")[0];
-		Quest quest = job.getQuest(qname);
-		if (quest == null)
-		    continue;
+	    String qname = one.split(":", 2)[0];
+	    Quest quest = job.getQuest(qname);
+	    if (quest == null)
+		continue;
 
-		one = one.substring(qname.length() + 1);
+	    one = one.substring(qname.length() + 1);
 
-		String longS = one.split(":")[0];
-		long validUntil = Long.parseLong(longS);
-		one = one.substring(longS.length() + 1);
+	    String longS = one.split(":", 2)[0];
+	    long validUntil = Long.parseLong(longS);
+	    one = one.substring(longS.length() + 1);
 
-		Map<String, QuestProgression> currentProgression = qProgression.get(job.getName());
+	    Map<String, QuestProgression> currentProgression = qProgression.get(job.getName());
 
-		if (currentProgression == null) {
-		    currentProgression = new HashMap<>();
-		    qProgression.put(job.getName(), currentProgression);
-		}
-
-		QuestProgression qp = currentProgression.get(qname.toLowerCase());
-		if (qp == null) {
-		    qp = new QuestProgression(quest);
-		    qp.setValidUntil(validUntil);
-		    currentProgression.put(qname.toLowerCase(), qp);
-		}
-
-		for (String oneA : one.split(":;:")) {
-		    String prog = oneA.split(";")[0];
-		    ActionType action = ActionType.getByName(prog);
-		    if (action == null || oneA.length() < prog.length() + 1)
-			continue;
-
-		    oneA = oneA.substring(prog.length() + 1);
-
-		    String target = oneA.split(";")[0];
-		    Map<String, QuestObjective> old = quest.getObjectives().get(action);
-		    if (old == null)
-			continue;
-
-		    QuestObjective obj = old.get(target);
-		    if (obj == null)
-			continue;
-
-		    oneA = oneA.substring(target.length() + 1);
-
-		    qp.setAmountDone(obj, Integer.parseInt(oneA.split(";")[0]));
-		}
-
-		if (qp.isCompleted())
-		    qp.setGivenReward(true);
-	    } catch (Exception e) {
-		e.printStackTrace();
+	    if (currentProgression == null) {
+		currentProgression = new HashMap<>();
+		qProgression.put(job.getName(), currentProgression);
 	    }
+
+	    QuestProgression qp = currentProgression.get(qname.toLowerCase());
+	    if (qp == null) {
+		qp = new QuestProgression(quest);
+		qp.setValidUntil(validUntil);
+		currentProgression.put(qname.toLowerCase(), qp);
+	    }
+
+	    for (String oneA : one.split(":;:")) {
+		String prog = oneA.split(";", 2)[0];
+		ActionType action = ActionType.getByName(prog);
+		if (action == null || oneA.length() < prog.length() + 1)
+		    continue;
+
+		Map<String, QuestObjective> old = quest.getObjectives().get(action);
+		if (old == null)
+		    continue;
+
+		oneA = oneA.substring(prog.length() + 1);
+
+		String target = oneA.split(";", 2)[0];
+		QuestObjective obj = old.get(target);
+		if (obj == null)
+		    continue;
+
+		oneA = oneA.substring(target.length() + 1);
+
+		qp.setAmountDone(obj, Integer.parseInt(oneA.split(";", 2)[0]));
+	    }
+
+	    if (qp.isCompleted())
+		qp.setGivenReward(true);
 	}
     }
 
@@ -1258,12 +1256,9 @@ public class JobsPlayer {
 	this.setSaved(false);
 
 	if (questSignUpdateShed == null) {
-	    questSignUpdateShed = Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
-		@Override
-		public void run() {
-		    Jobs.getSignUtil().SignUpdate(job, SignTopType.questtoplist);
-		    questSignUpdateShed = null;
-		}
+	    questSignUpdateShed = Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> {
+		Jobs.getSignUtil().signUpdate(job, SignTopType.questtoplist);
+		questSignUpdateShed = null;
 	    }, Jobs.getGCManager().getSavePeriod() * 60 * 20L);
 	}
     }

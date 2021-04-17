@@ -45,7 +45,6 @@ import org.bukkit.inventory.meta.FireworkMeta;
 import com.gamingmesh.jobs.CMILib.Version;
 import com.gamingmesh.jobs.CMILib.ActionBarManager;
 import com.gamingmesh.jobs.CMILib.CMIReflections;
-import com.gamingmesh.jobs.CMILib.TitleMessageManager;
 import com.gamingmesh.jobs.api.JobsJoinEvent;
 import com.gamingmesh.jobs.api.JobsLeaveEvent;
 import com.gamingmesh.jobs.api.JobsLevelUpEvent;
@@ -245,14 +244,11 @@ public class PlayerManager {
 		jPlayer = Jobs.getJobsDAO().loadFromDao(player);
 
 	    if (Jobs.getGCManager().MultiServerCompatability()) {
-		ArchivedJobs archivedJobs = Jobs.getJobsDAO().getArchivedJobs(jPlayer);
-		if (archivedJobs != null) {
-		    jPlayer.setArchivedJobs(archivedJobs);
-		}
-
+		jPlayer.setArchivedJobs(Jobs.getJobsDAO().getArchivedJobs(jPlayer));
 		jPlayer.setPaymentLimit(Jobs.getJobsDAO().getPlayersLimits(jPlayer));
 		jPlayer.setPoints(Jobs.getJobsDAO().getPlayerPoints(jPlayer));
 	    }
+
 	    // Lets load quest progression
 	    PlayerInfo info = Jobs.getJobsDAO().loadPlayerData(player.getUniqueId());
 	    if (info != null) {
@@ -341,6 +337,7 @@ public class PlayerManager {
 
 	    for (JobProgression oneJ : jPlayer.getJobProgression())
 		dao.insertJob(jPlayer, oneJ);
+
 	    dao.saveLog(jPlayer);
 	    dao.savePoints(jPlayer);
 	    dao.recordPlayersLimits(jPlayer);
@@ -845,11 +842,31 @@ public class PlayerManager {
 	performCommandOnLevelUp(jPlayer, prog.getJob(), oldLevel);
 	Jobs.getSignUtil().updateAllSign(job);
 
-	if (Jobs.getGCManager().titleMessageMaxLevelReached && player != null && prog.getLevel() == jPlayer.getMaxJobLevelAllowed(prog.getJob())) {
-	    TitleMessageManager.send(player, Jobs.getLanguage().getMessage("message.max-level-reached.title",
-		"%jobname%", prog.getJob().getNameWithColor()),
-		Jobs.getLanguage().getMessage("message.max-level-reached.subtitle", "%jobname%", prog.getJob().getNameWithColor()), 20, 40, 20);
-	    player.sendMessage(Jobs.getLanguage().getMessage("message.max-level-reached.chat", "%jobname%", prog.getJob().getNameWithColor()));
+	if (player != null && prog.getLevel() == jPlayer.getMaxJobLevelAllowed(prog.getJob())) {
+	    for (String cmd : job.getMaxLevelCommands()) {
+		if (cmd.isEmpty()) {
+		    continue;
+		}
+
+		if (cmd.contains(":")) {
+		    String[] split = cmd.split(":", 2);
+
+		    String command = "";
+		    if (split.length > 1) {
+			command = split[1];
+			command = command.replace("[playerName]", player.getName());
+			command = command.replace("[job]", job.getName());
+		    }
+
+		    if (split[0].equalsIgnoreCase("player:")) {
+			player.performCommand(command);
+		    } else {
+			Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+		    }
+		} else {
+		    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+		}
+	    }
 	}
     }
 
@@ -1095,7 +1112,7 @@ public class PlayerManager {
 		boost.add(BoostOf.PetPay, new BoostMultiplier().add(petPay));
 	}
 
-	if (victim != null && victim.hasMetadata(getMobSpawnerMetadata())) {
+	if (victim != null && victim.hasMetadata(mobSpawnerMetadata)) {
 	    Double amount = Jobs.getPermissionManager().getMaxPermission(player, "jobs.nearspawner", false, false);
 	    if (amount != 0D)
 		boost.add(BoostOf.NearSpawner, new BoostMultiplier().add(amount));
@@ -1129,7 +1146,7 @@ public class PlayerManager {
     }
 
     public void autoJoinJobs(final Player player) {
-	if (player == null || player.isOp() || !Jobs.getGCManager().AutoJobJoinUse)
+	if (!Jobs.getGCManager().AutoJobJoinUse || player == null || player.isOp())
 	    return;
 
 	Bukkit.getServer().getScheduler().runTaskLater(plugin, new Runnable() {
@@ -1143,13 +1160,14 @@ public class PlayerManager {
 		    return;
 
 		int confMaxJobs = Jobs.getGCManager().getMaxJobs();
+		short playerMaxJobs = (short) jPlayer.getJobProgression().size();
+
+		if (confMaxJobs > 0 && playerMaxJobs >= confMaxJobs && !getJobsLimit(jPlayer, playerMaxJobs))
+		    return;
+
 		for (Job one : Jobs.getJobs()) {
 		    if (one.getMaxSlots() != null && Jobs.getUsedSlots(one) >= one.getMaxSlots())
 			continue;
-
-		    short playerMaxJobs = (short) jPlayer.getJobProgression().size();
-		    if (confMaxJobs > 0 && playerMaxJobs >= confMaxJobs && !getJobsLimit(jPlayer, playerMaxJobs))
-			break;
 
 		    if (!jPlayer.isInJob(one) && player.hasPermission("jobs.autojoin." + one.getName().toLowerCase()))
 			joinJob(jPlayer, one);

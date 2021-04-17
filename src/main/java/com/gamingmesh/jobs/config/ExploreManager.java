@@ -27,8 +27,8 @@ public class ExploreManager {
     }
 
     public void setPlayerAmount(int amount) {
-	if (this.playerAmount < amount)
-	    this.playerAmount = amount;
+	if (playerAmount < amount)
+	    playerAmount = amount;
     }
 
     public boolean isExploreEnabled() {
@@ -44,9 +44,12 @@ public class ExploreManager {
     public void load() {
 	if (!exploreEnabled)
 	    return;
+
 	Jobs.consoleMsg("&e[Jobs] Loading explorer data");
 	Jobs.getJobsDAO().loadExplore();
-	Jobs.consoleMsg("&e[Jobs] Loaded explorer data" + (getSize() != 0 ? " (" + getSize() + ")" : "."));
+
+	int size = getSize();
+	Jobs.consoleMsg("&e[Jobs] Loaded explorer data" + (size != 0 ? " (" + size + ")" : "."));
     }
 
     public Map<String, ExploreRegion> getWorlds() {
@@ -61,21 +64,22 @@ public class ExploreManager {
 	return i;
     }
 
-    public ExploreRespond ChunkRespond(Player player, Chunk chunk) {
-	return ChunkRespond(Jobs.getPlayerManager().getJobsPlayer(player).getUserId(), chunk.getWorld().getName(), chunk.getX(), chunk.getZ());
+    public ExploreRespond chunkRespond(Player player, Chunk chunk) {
+	return chunkRespond(Jobs.getPlayerManager().getJobsPlayer(player).getUserId(), chunk.getWorld().getName(), chunk.getX(), chunk.getZ());
     }
 
-    public ExploreRespond ChunkRespond(int playerId, Chunk chunk) {
-	return ChunkRespond(playerId, chunk.getWorld().getName(), chunk.getX(), chunk.getZ());
+    public ExploreRespond chunkRespond(int playerId, Chunk chunk) {
+	return chunkRespond(playerId, chunk.getWorld().getName(), chunk.getX(), chunk.getZ());
     }
 
-    public ExploreRespond ChunkRespond(int playerId, String world, int x, int z) {
+    public ExploreRespond chunkRespond(int playerId, String world, int x, int z) {
 	ExploreRegion eRegions = worlds.get(world);
 	if (eRegions == null) {
 	    int RegionX = (int) Math.floor(x / 32D);
 	    int RegionZ = (int) Math.floor(z / 32D);
 	    eRegions = new ExploreRegion(RegionX, RegionZ);
 	}
+
 	ExploreChunk chunk = eRegions.getChunk(x, z);
 	if (chunk == null)
 	    chunk = new ExploreChunk();

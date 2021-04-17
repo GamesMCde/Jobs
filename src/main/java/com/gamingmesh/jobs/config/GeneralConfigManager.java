@@ -96,7 +96,7 @@ public class GeneralConfigManager {
 	BossBarEnabled = false, BossBarShowOnEachAction = false, BossBarsMessageByDefault = false, ExploreCompact, DBCleaningJobsUse, DBCleaningUsersUse,
 	DisabledWorldsUse, UseAsWhiteListWorldList, PaymentMethodsMoney, PaymentMethodsPoints, PaymentMethodsExp, MythicMobsEnabled,
 	LoggingUse, payForCombiningItems, BlastFurnacesReassign = false, SmokerReassign = false, payForStackedEntities,
-	payForEachVTradeItem, titleMessageMaxLevelReached, allowEnchantingBoostedItems;
+	payForEachVTradeItem, allowEnchantingBoostedItems;
 
     public ItemStack guiBackButton, guiNextButton, guiFiller;
 
@@ -265,7 +265,7 @@ public class GeneralConfigManager {
 	// Item/Block/mobs name list
 	Jobs.getNameTranslatorManager().load();
 	// signs information
-	Jobs.getSignUtil().LoadSigns();
+	Jobs.getSignUtil().loadSigns();
 	// Shop
 	Jobs.getShopManager().load();
     }
@@ -862,9 +862,6 @@ public class GeneralConfigManager {
 	TitleChangeChat = c.get("ShowChatMessage.OnTitleChange", true);
 	LevelChangeChat = c.get("ShowChatMessage.OnLevelChange", true);
 	EmptyServerAccountChat = c.get("ShowChatMessage.OnEmptyServerAccount", true);
-
-	c.addComment("SendTitleMessageWhenMaxLevelReached", "Send title and chat message when a player reached the maximum level in a job.");
-	titleMessageMaxLevelReached = c.get("SendTitleMessageWhenMaxLevelReached", false);
 
 	c.addComment("Sounds", "Extra sounds on some events",
 	    "All sounds can be found in https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html");

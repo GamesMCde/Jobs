@@ -52,7 +52,7 @@
 		</dependency>
 		<!-- Vault -->
 		<dependency>
-			<groupId>net.milkbowl.vault</groupId>
+			<groupId>com.github.MilkBowl</groupId>
 			<artifactId>VaultAPI</artifactId>
 			<version>1.7</version>
 			<scope>provided</scope>
@@ -156,6 +156,10 @@
 					<groupId>org.apache.logging.log4j</groupId>
 					<artifactId>log4j-slf4j-impl</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>org.bukkit</groupId>
+					<artifactId>bukkit</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<!-- PlaceholderAPI -->
@@ -187,8 +191,9 @@
 		<dependency>
 			<groupId>com.github.Nathat23</groupId>
 			<artifactId>StackMob-5</artifactId>
-			<version>master-SNAPSHOT</version>
-			<scope>provided</scope>
+			<version>5.5.3</version>
+			<scope>system</scope>
+			<systemPath>${basedir}/libs/StackMob-5.5.3.jar</systemPath>
 		</dependency>
 		<!-- MyPet -->
 		<dependency>
@@ -201,11 +206,6 @@
 		</dependency>
 	</dependencies>
 	<repositories>
-		<!-- Vault -->
-		<repository>
-			<id>vault-repo</id>
-			<url>http://nexus.hc.to/content/repositories/pub_releases/</url>
-		</repository>
 		<!-- MythicMobs -->
 		<repository>
 			<id>nexus</id>
@@ -215,7 +215,7 @@
 		<!-- WorldGuard & WorldEdit -->
 		<repository>
 			<id>sk89q-repo</id>
-			<url>http://maven.sk89q.com/repo/</url>
+			<url>https://maven.enginehub.org/repo/</url>
 		</repository>
 		<repository>
 			<id>jitpack.io</id>
@@ -229,7 +229,7 @@
 		<!-- PlaceholderAPI -->
 		<repository>
 			<id>placeholderapi</id>
-			<url>http://repo.extendedclip.com/content/repositories/placeholderapi/</url>
+			<url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
 		</repository>
 		<!-- MyPet -->
 		<!--<repository>

@@ -56,7 +56,6 @@ import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.world.StructureGrowEvent;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.inventory.ItemStack;
@@ -154,10 +153,6 @@ public class JobsListener implements Listener {
 
 //    @EventHandler(priority = EventPriority.MONITOR)
 //    public void onPlayerJoinMonitor(PlayerJoinEvent event) {
-//	// make sure plugin is enabled
-//	if (!plugin.isEnabled())
-//	    return;
-//
 //	/*
 //	 * We need to recalculate again to check for world permission and revoke permissions
 //	 * if we don't have world permission (from some other permission manager).  It's 
@@ -230,8 +225,7 @@ public class JobsListener implements Listener {
 	    return;
 	}
 
-	jobsSign jSign = Jobs.getSignUtil().getSign(block.getLocation());
-	if (jSign == null)
+	if (Jobs.getSignUtil().getSign(block.getLocation()) == null)
 	    return;
 
 	if (!player.hasPermission("jobs.command.signs")) {
@@ -303,7 +297,7 @@ public class JobsListener implements Listener {
 
 	event.setCancelled(true);
 
-	plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> signUtil.SignUpdate(job, type), 1L);
+	plugin.getServer().getScheduler().runTaskLater(plugin, () -> signUtil.signUpdate(job, type), 1L);
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -358,7 +352,7 @@ public class JobsListener implements Listener {
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onCropGrown(final BlockGrowEvent event) {
 	if (Jobs.getGCManager().canPerformActionInWorld(event.getBlock().getWorld())) {
-	    plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> Jobs.getBpManager().remove(event.getBlock()), 1L);
+	    plugin.getServer().getScheduler().runTaskLater(plugin, () -> Jobs.getBpManager().remove(event.getBlock()), 1L);
 	}
     }
 
@@ -448,10 +442,8 @@ public class JobsListener implements Listener {
 
 	Chunk from = event.getFrom().getChunk();
 	Chunk to = event.getTo().getChunk();
-	if (from == to)
-	    return;
-
-	plugin.getServer().getPluginManager().callEvent(new JobsChunkChangeEvent(event.getPlayer(), from, to));
+	if (from != to)
+	    plugin.getServer().getPluginManager().callEvent(new JobsChunkChangeEvent(event.getPlayer(), from, to));
     }
 
     @EventHandler
@@ -536,19 +528,18 @@ public class JobsListener implements Listener {
 
     @EventHandler
     public void playerInteractEvent(PlayerInteractEvent event) {
-	Action action = event.getAction();
-	if (action == Action.PHYSICAL)
+	if (event.getAction() == Action.PHYSICAL)
 	    return;
 
-	if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK)
+	if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK)
 	    return;
 
 	ArmorTypes newArmorType = ArmorTypes.matchType(event.getItem());
 	if (newArmorType == null)
 	    return;
 
-	Player player = event.getPlayer();
-	PlayerInventory inv = player.getInventory();
+	PlayerInventory inv = event.getPlayer().getInventory();
+
 	if (newArmorType == ArmorTypes.HELMET &&
 	    inv.getHelmet() == null ||
 	    (newArmorType == ArmorTypes.CHESTPLATE || newArmorType == ArmorTypes.ELYTRA) &&
@@ -557,15 +548,14 @@ public class JobsListener implements Listener {
 		inv.getLeggings() == null ||
 	    newArmorType == ArmorTypes.BOOTS &&
 		inv.getBoots() == null) {
-	    JobsArmorChangeEvent armorEquipEvent = new JobsArmorChangeEvent(player, EquipMethod.HOTBAR, ArmorTypes.matchType(event.getItem()), null, event
+	    JobsArmorChangeEvent armorEquipEvent = new JobsArmorChangeEvent(event.getPlayer(), EquipMethod.HOTBAR, ArmorTypes.matchType(event.getItem()), null, event
 		.getItem());
 	    plugin.getServer().getPluginManager().callEvent(armorEquipEvent);
 	    if (armorEquipEvent.isCancelled()) {
 		event.setCancelled(true);
-		player.updateInventory();
+		event.getPlayer().updateInventory();
 	    }
 	}
-
     }
 
     @EventHandler
@@ -629,27 +619,22 @@ public class JobsListener implements Listener {
     }
 
     @EventHandler
-    public void JobsArmorChangeEvent(JobsArmorChangeEvent event) {
+    public void jobsArmorChangeEvent(JobsArmorChangeEvent event) {
 	Jobs.getPlayerManager().resetItemBonusCache(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
-    public void PlayerItemHeldEvent(PlayerItemHeldEvent event) {
+    public void playerItemHeldEvent(PlayerItemHeldEvent event) {
 	Jobs.getPlayerManager().resetItemBonusCache(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
-    public void PlayerItemBreakEvent(PlayerItemBreakEvent event) {
+    public void playerItemBreakEvent(PlayerItemBreakEvent event) {
 	Jobs.getPlayerManager().resetItemBonusCache(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
-    public void PlayerItemBreakEvent(InventoryClickEvent event) {
+    public void playerItemBreakEvent(InventoryClickEvent event) {
 	Jobs.getPlayerManager().resetItemBonusCache(((Player) event.getWhoClicked()).getUniqueId());
-    }
-
-    @EventHandler
-    public void onPlayerHandSwap(PlayerSwapHandItemsEvent event) {
-	Jobs.getPlayerManager().resetItemBonusCache(event.getPlayer().getUniqueId());
     }
 }

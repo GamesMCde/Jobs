@@ -84,7 +84,7 @@ public class Job {
 
     private Parser moneyEquation, xpEquation, pointsEquation;
 
-    private final List<String> fDescription = new ArrayList<>();
+    private final List<String> fDescription = new ArrayList<>(), maxLevelCommands = new ArrayList<>();
     private List<String> worldBlacklist = new ArrayList<>();
 
     private final List<Quest> quests = new ArrayList<>();
@@ -167,7 +167,7 @@ public class Job {
     }
 
     public boolean isSame(Job job) {
-	return job != null && (fullName.equalsIgnoreCase(job.getName()) || id == job.getId());
+	return job != null && (id == job.getId() || fullName.equalsIgnoreCase(job.getName()));
     }
 
     public int getTotalPlayers() {
@@ -200,8 +200,10 @@ public class Job {
 	double now = eq.getValue();
 	if (now > Jobs.getGCManager().DynamicPaymentMaxBonus)
 	    now = Jobs.getGCManager().DynamicPaymentMaxBonus;
-	if (now < Jobs.getGCManager().DynamicPaymentMaxPenalty * -1)
-	    now = Jobs.getGCManager().DynamicPaymentMaxPenalty * -1;
+
+	double maxPenalty = Jobs.getGCManager().DynamicPaymentMaxPenalty * -1;
+	if (now < maxPenalty)
+	    now = maxPenalty;
 
 	this.bonus = (now / 100D);
     }
@@ -258,8 +260,8 @@ public class Job {
     public JobInfo getJobInfo(ActionInfo action, int level) {
 	BiPredicate<JobInfo, ActionInfo> condition = (jobInfo, actionInfo) -> {
 	    if (actionInfo instanceof PotionItemActionInfo) {
-		return jobInfo.getName().equalsIgnoreCase(((PotionItemActionInfo) action).getNameWithSub()) ||
-		    (jobInfo.getName() + ":" + jobInfo.getMeta()).equalsIgnoreCase(((PotionItemActionInfo) action).getNameWithSub());
+		String subName = ((PotionItemActionInfo) action).getNameWithSub();
+		return jobInfo.getName().equalsIgnoreCase(subName) || (jobInfo.getName() + ":" + jobInfo.getMeta()).equalsIgnoreCase(subName);
 	    }
 
 	    return jobInfo.getName().equalsIgnoreCase(action.getNameWithSub()) ||
@@ -509,6 +511,18 @@ public class Job {
 	}
     }
 
+    public void setMaxLevelCommands(List<String> commands) {
+	maxLevelCommands.clear();
+
+	if (commands != null) {
+	    maxLevelCommands.addAll(commands);
+	}
+    }
+
+    public List<String> getMaxLevelCommands() {
+	return maxLevelCommands;
+    }
+
     public List<Quest> getQuests() {
 	return quests;
     }
@@ -530,10 +544,6 @@ public class Job {
 	this.quests.clear();
 	this.quests.addAll(quests == null ? new ArrayList<>() : quests);
     }
-
-//    public Quest getNextQuest() {
-//	return getNextQuest(null, null);
-//    }
 
     public Quest getNextQuest(List<String> excludeQuests, Integer level) {
 	List<Quest> ls = new ArrayList<>(quests);
@@ -569,11 +579,7 @@ public class Job {
     }
 
     public void setId(int id) {
-	Jobs.getJobsIds().remove(this.id);
-
 	this.id = id;
-	if (id != 0)
-	    Jobs.getJobsIds().put(id, this);
     }
 
     public List<String> getWorldBlacklist() {

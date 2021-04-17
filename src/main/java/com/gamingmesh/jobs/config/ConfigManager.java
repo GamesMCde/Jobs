@@ -670,9 +670,7 @@ public class ConfigManager {
 	    String fileName = jobKey.equalsIgnoreCase(EXAMPLEJOBNAME) ? jobKey.toUpperCase() : jobKey.toLowerCase();
 
 	    YmlMaker newJobFile = new YmlMaker(jobsPathFolder, fileName + ".yml");
-	    if (!newJobFile.exists()) {
-		newJobFile.createNewFile();
-	    }
+	    newJobFile.createNewFile();
 
 	    FileConfiguration conf = newJobFile.getConfig();
 	    conf.options().pathSeparator(File.separatorChar);
@@ -755,6 +753,9 @@ public class ConfigManager {
 	    jobKey = StringEscapeUtils.unescapeJava(jobKey);
 
 	    ConfigurationSection jobSection = jobsSection.getConfigurationSection(jobKey);
+	    if (jobSection == null)
+		continue;
+
 	    String jobFullName = jobSection.getString("fullname");
 	    if (jobFullName == null) {
 		log.warning("Job " + jobKey + " has an invalid fullname property. Skipping job!");
@@ -1125,6 +1126,7 @@ public class ConfigManager {
 	    job.setPointsEquation(pointsEquation);
 	    job.setBossbar(bossbar);
 	    job.setRejoinCd(rejoinCd);
+	    job.setMaxLevelCommands(jobSection.getStringList("commands-on-max-level"));
 
 	    if (jobSection.isConfigurationSection("Quests")) {
 		List<Quest> quests = new ArrayList<>();
@@ -1141,11 +1143,10 @@ public class ConfigManager {
 
 			if (sqsection.isString("Target")) {
 			    ActionType actionType = ActionType.getByName(sqsection.getString("Action"));
-			    KeyValues kv = getKeyValue(sqsection.getString("Target"), actionType, jobFullName);
+			    KeyValues kv = getKeyValue(sqsection.getString("Target").toUpperCase(), actionType, jobFullName);
 			    if (kv != null) {
 				int amount = sqsection.getInt("Amount", 1);
-				QuestObjective objective = new QuestObjective(actionType, kv.getId(), kv.getMeta(), kv.getType() + kv.getSubType(), amount);
-				quest.addObjective(objective);
+				quest.addObjective(new QuestObjective(actionType, kv.getId(), kv.getMeta(), (kv.getType() + kv.getSubType()).toUpperCase(), amount));
 			    }
 			}
 
@@ -1159,7 +1160,7 @@ public class ConfigManager {
 
 				try {
 				    ActionType actionType = ActionType.getByName(split[0]);
-				    String mats = split[1];
+				    String mats = split[1].toUpperCase();
 				    String[] co = mats.split(",");
 
 				    int amount = 1;
@@ -1175,14 +1176,14 @@ public class ConfigManager {
 					    }
 
 					    QuestObjective objective = new QuestObjective(actionType, kv.getId(), kv.getMeta(),
-						kv.getType() + kv.getSubType(), amount);
+						(kv.getType() + kv.getSubType()).toUpperCase(), amount);
 					    quest.addObjective(objective);
 					}
 				    } else {
 					KeyValues kv = getKeyValue(mats, actionType, jobFullName);
 					if (kv != null) {
 					    QuestObjective objective = new QuestObjective(actionType, kv.getId(), kv.getMeta(),
-						kv.getType() + kv.getSubType(), amount);
+						(kv.getType() + kv.getSubType()).toUpperCase(), amount);
 					    quest.addObjective(objective);
 					}
 				    }

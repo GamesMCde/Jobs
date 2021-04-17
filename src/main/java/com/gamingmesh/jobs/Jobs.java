@@ -105,7 +105,6 @@ public class Jobs extends JavaPlugin {
     private static List<Job> jobs;
     private static Job noneJob;
     private static Map<Job, Integer> usedSlots = new WeakHashMap<>();
-    private static Map<Integer, Job> jobsIds = new HashMap<>();
 
     public static BufferedPaymentThread paymentThread;
     private static DatabaseSaveThread saveTask;
@@ -478,18 +477,17 @@ public class Jobs extends JavaPlugin {
      * @return {@link Job}
      */
     public static Job getJob(int id) {
-	return jobsIds.get(id);
+	for (Job job : jobs) {
+	    if (job.getId() == id) {
+		return job;
+	    }
+	}
+
+	return null;
     }
 
     public boolean isPlaceholderAPIEnabled() {
 	return placeholderAPIEnabled;
-    }
-
-    /**
-     * @return the cached job id map.
-     */
-    public static Map<Integer, Job> getJobsIds() {
-	return jobsIds;
     }
 
     private void startup() {
@@ -708,6 +706,10 @@ public class Jobs extends JavaPlugin {
 	    }
 
 	    // register the listeners
+	    if (Version.isCurrentEqualOrHigher(Version.v1_9_R1)) {
+		getServer().getPluginManager().registerEvents(new com.gamingmesh.jobs.listeners.Listener1_9(), instance);
+	    }
+
 	    getServer().getPluginManager().registerEvents(new JobsListener(this), this);
 	    getServer().getPluginManager().registerEvents(new JobsPaymentListener(this), this);
 	    if (Version.isCurrentEqualOrHigher(Version.v1_14_R1)) {
@@ -722,7 +724,7 @@ public class Jobs extends JavaPlugin {
 
 	    boolean kyoriSupported = false;
 	    try {
-		Class.forName("net.kyori.adventure.text.Component");
+		Class.forName("net.kyori.adventure.text.serializer.plain.PlainComponentSerializer");
 		kyoriSupported = true;
 	    } catch (ClassNotFoundException e) {
 	    }
@@ -764,6 +766,10 @@ public class Jobs extends JavaPlugin {
 
 	    com.gamingmesh.jobs.CMIGUI.GUIManager.registerListener();
 
+	    if (Version.isCurrentEqualOrHigher(Version.v1_9_R1)) {
+		pm.registerEvents(new com.gamingmesh.jobs.listeners.Listener1_9(), instance);
+	    }
+
 	    pm.registerEvents(new JobsListener(instance), instance);
 	    pm.registerEvents(new JobsPaymentListener(instance), instance);
 	    if (Version.isCurrentEqualOrHigher(Version.v1_14_R1)) {
@@ -771,8 +777,7 @@ public class Jobs extends JavaPlugin {
 	    }
 
 	    if (getGCManager().useBlockProtection) {
-		PistonProtectionListener pistonProtection = new PistonProtectionListener();
-		pm.registerEvents(pistonProtection, instance);
+		pm.registerEvents(new PistonProtectionListener(), instance);
 	    }
 
 	    if (HookManager.getMcMMOManager().CheckmcMMO()) {
@@ -963,10 +968,7 @@ public class Jobs extends JavaPlugin {
 
 	// no job
 	if (numjobs == 0) {
-	    if (noneJob == null)
-		return;
-
-	    if (noneJob.isWorldBlackListed(block) || noneJob.isWorldBlackListed(block, ent) || noneJob.isWorldBlackListed(victim))
+	    if (noneJob == null || noneJob.isWorldBlackListed(block) || noneJob.isWorldBlackListed(block, ent) || noneJob.isWorldBlackListed(victim))
 		return;
 
 	    JobInfo jobinfo = noneJob.getJobInfo(info, 1);
@@ -976,8 +978,8 @@ public class Jobs extends JavaPlugin {
 	    if (jobinfo == null)
 		return;
 
-	    Double income = jobinfo.getIncome(1, numjobs, jPlayer.maxJobsEquation);
-	    Double pointAmount = jobinfo.getPoints(1, numjobs, jPlayer.maxJobsEquation);
+	    double income = jobinfo.getIncome(1, numjobs, jPlayer.maxJobsEquation);
+	    double pointAmount = jobinfo.getPoints(1, numjobs, jPlayer.maxJobsEquation);
 
 	    if (income == 0D && pointAmount == 0D)
 		return;
