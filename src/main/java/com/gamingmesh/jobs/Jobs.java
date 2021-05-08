@@ -97,6 +97,8 @@ public class Jobs extends JavaPlugin {
 
     private final Set<BlockOwnerShip> blockOwnerShips = new HashSet<>();
 
+    private boolean kyoriSupported = false;
+
     private CMIScoreboardManager cmiScoreboardManager;
     private Complement complement;
     private GuiManager guiManager;
@@ -120,6 +122,10 @@ public class Jobs extends JavaPlugin {
 
     public Complement getComplement() {
 	return complement;
+    }
+
+    public boolean isKyoriSupported() {
+	return kyoriSupported;
     }
 
 	/**
@@ -191,12 +197,17 @@ public class Jobs extends JavaPlugin {
     }
 
     private boolean setupPlaceHolderAPI() {
-	if (!getServer().getPluginManager().isPluginEnabled("PlaceholderAPI"))
+	org.bukkit.plugin.Plugin papi = getServer().getPluginManager().getPlugin("PlaceholderAPI");
+	if (papi == null || !papi.isEnabled())
 	    return false;
 
-	if (Integer.parseInt(getServer().getPluginManager().getPlugin("PlaceholderAPI")
-	    .getDescription().getVersion().replaceAll("[^\\d]", "")) >= 2100 && new PlaceholderAPIHook(this).register()) {
-	    consoleMsg("&e[Jobs] PlaceholderAPI hooked.");
+	try {
+	    if (Integer.parseInt(papi
+		.getDescription().getVersion().replaceAll("[^\\d]", "")) >= 2100 && new PlaceholderAPIHook(this).register()) {
+		consoleMsg("&e[Jobs] PlaceholderAPI hooked.");
+	    }
+	} catch (NumberFormatException ex) {
+	    return false;
 	}
 
 	return true;
@@ -241,7 +252,7 @@ public class Jobs extends JavaPlugin {
 
     public static ShopManager getShopManager() {
 	if (shopManager == null) {
-	    shopManager = new ShopManager(instance);
+	    shopManager = new ShopManager();
 	}
 	return shopManager;
     }
@@ -466,6 +477,8 @@ public class Jobs extends JavaPlugin {
 	for (Job job : jobs) {
 	    if (job.getName().equalsIgnoreCase(jobName))
 		return job;
+	    if (job.getJobFullName().equalsIgnoreCase(jobName))
+		return job;
 	}
 	return null;
     }
@@ -496,7 +509,7 @@ public class Jobs extends JavaPlugin {
 	CompletableFuture<Void> pd = loadAllPlayersData();
 
 	// attempt to add all online players to cache
-	pd.thenAccept(e -> Bukkit.getServer().getOnlinePlayers().forEach(getPlayerManager()::playerJoin));
+	pd.thenAccept(e -> getServer().getOnlinePlayers().forEach(getPlayerManager()::playerJoin));
     }
 
     public static CompletableFuture<Void> loadAllPlayersData() {
@@ -610,8 +623,9 @@ public class Jobs extends JavaPlugin {
      * @param job - the job someone is taking
      */
     public static void takeSlot(Job job) {
-	if (usedSlots.containsKey(job))
-	    usedSlots.put(job, usedSlots.get(job) + 1);
+	Integer used = usedSlots.get(job);
+	if (used != null)
+	    usedSlots.put(job, used + 1);
     }
 
     /**
@@ -619,8 +633,9 @@ public class Jobs extends JavaPlugin {
      * @param job - the job someone is leaving
      */
     public static void leaveSlot(Job job) {
-	if (usedSlots.containsKey(job))
-	    usedSlots.put(job, usedSlots.get(job) - 1);
+	Integer used = usedSlots.get(job);
+	if (used != null)
+	    usedSlots.put(job, used - 1);
     }
 
     /**
@@ -686,6 +701,12 @@ public class Jobs extends JavaPlugin {
 	    return;
 	}
 
+	try {
+	    Class.forName("net.kyori.adventure.text.Component");
+	    kyoriSupported = true;
+	} catch (ClassNotFoundException e) {
+	}
+
 	placeholderAPIEnabled = setupPlaceHolderAPI();
 
 	try {
@@ -722,13 +743,6 @@ public class Jobs extends JavaPlugin {
 		getServer().getPluginManager().registerEvents(new PistonProtectionListener(), this);
 	    }
 
-	    boolean kyoriSupported = false;
-	    try {
-		Class.forName("net.kyori.adventure.text.serializer.plain.PlainComponentSerializer");
-		kyoriSupported = true;
-	    } catch (ClassNotFoundException e) {
-	    }
-
 	    if (Version.isCurrentEqualOrHigher(Version.v1_16_R3) && kyoriSupported) {
 		complement = new Complement2();
 		//getServer().getPluginManager().registerEvents(new KyoriChatEvent(this), this);
@@ -738,7 +752,7 @@ public class Jobs extends JavaPlugin {
 	    getServer().getPluginManager().registerEvents(new JobsChatEvent(this), this);
 
 	    // register economy
-	    Bukkit.getScheduler().runTask(this, new HookEconomyTask(this));
+	    getServer().getScheduler().runTask(this, new HookEconomyTask(this));
 
 	    dao.loadBlockProtection();
 	    getExplore().load();
@@ -999,26 +1013,29 @@ public class Jobs extends JavaPlugin {
 	    }
 
 	    // Calculate income
-
 	    if (income != 0D) {
 		income = boost.getFinalAmount(CurrencyType.MONEY, income);
+
 		if (gConfigManager.useMinimumOveralPayment && income > 0) {
 		    double maxLimit = income * gConfigManager.MinimumOveralPaymentLimit;
+
 		    if (income < maxLimit)
 			income = maxLimit;
 		}
 	    }
 
 	    // Calculate points
-
 	    if (pointAmount != 0D) {
 		pointAmount = boost.getFinalAmount(CurrencyType.POINTS, pointAmount);
+
 		if (gConfigManager.useMinimumOveralPoints && pointAmount > 0) {
-		    double maxLimit = pointAmount * gConfigManager.MinimumOveralPaymentLimit;
+		    double maxLimit = pointAmount * gConfigManager.MinimumOveralPointsLimit;
+
 		    if (pointAmount < maxLimit)
 			pointAmount = maxLimit;
 		}
 	    }
+
 	    if (!jPlayer.isUnderLimit(CurrencyType.MONEY, income)) {
 		if (gConfigManager.useMaxPaymentCurve) {
 		    double percentOver = jPlayer.percentOverLimit(CurrencyType.MONEY);
@@ -1135,8 +1152,10 @@ public class Jobs extends JavaPlugin {
 		// Calculate income
 		if (income != 0D) {
 		    income = boost.getFinalAmount(CurrencyType.MONEY, income);
+
 		    if (gConfigManager.useMinimumOveralPayment && income > 0) {
 			double maxLimit = income * gConfigManager.MinimumOveralPaymentLimit;
+
 			if (income < maxLimit)
 			    income = maxLimit;
 		    }
@@ -1145,43 +1164,60 @@ public class Jobs extends JavaPlugin {
 		// Calculate points
 		if (pointAmount != 0D) {
 		    pointAmount = boost.getFinalAmount(CurrencyType.POINTS, pointAmount);
+
 		    if (gConfigManager.useMinimumOveralPoints && pointAmount > 0) {
-			double maxLimit = pointAmount * gConfigManager.MinimumOveralPaymentLimit;
+			double maxLimit = pointAmount * gConfigManager.MinimumOveralPointsLimit;
+
 			if (pointAmount < maxLimit)
 			    pointAmount = maxLimit;
 		    }
 		}
 
 		// Calculate exp
-		expAmount = boost.getFinalAmount(CurrencyType.EXP, expAmount);
+		if (expAmount != 0D) {
+		    expAmount = boost.getFinalAmount(CurrencyType.EXP, expAmount);
 
-		if (gConfigManager.useMinimumOveralPayment && expAmount > 0) {
-		    double maxLimit = expAmount * gConfigManager.MinimumOveralPaymentLimit;
-		    if (expAmount < maxLimit)
-			expAmount = maxLimit;
+		    if (gConfigManager.useMinimumOveralExp && expAmount > 0) {
+			double maxLimit = expAmount * gConfigManager.minimumOveralExpLimit;
+
+			if (expAmount < maxLimit)
+			    expAmount = maxLimit;
+		    }
 		}
 
 		if (!jPlayer.isUnderLimit(CurrencyType.MONEY, income)) {
 		    income = 0D;
-		    if (gConfigManager.getLimit(CurrencyType.MONEY).getStopWith().contains(CurrencyType.EXP))
+
+		    CurrencyLimit cLimit = gConfigManager.getLimit(CurrencyType.MONEY);
+
+		    if (cLimit.getStopWith().contains(CurrencyType.EXP))
 			expAmount = 0D;
-		    if (gConfigManager.getLimit(CurrencyType.MONEY).getStopWith().contains(CurrencyType.POINTS))
+
+		    if (cLimit.getStopWith().contains(CurrencyType.POINTS))
 			pointAmount = 0D;
 		}
 
 		if (!jPlayer.isUnderLimit(CurrencyType.EXP, expAmount)) {
 		    expAmount = 0D;
-		    if (gConfigManager.getLimit(CurrencyType.EXP).getStopWith().contains(CurrencyType.MONEY))
+
+		    CurrencyLimit cLimit = gConfigManager.getLimit(CurrencyType.EXP);
+
+		    if (cLimit.getStopWith().contains(CurrencyType.MONEY))
 			income = 0D;
-		    if (gConfigManager.getLimit(CurrencyType.EXP).getStopWith().contains(CurrencyType.POINTS))
+
+		    if (cLimit.getStopWith().contains(CurrencyType.POINTS))
 			pointAmount = 0D;
 		}
 
 		if (!jPlayer.isUnderLimit(CurrencyType.POINTS, pointAmount)) {
 		    pointAmount = 0D;
-		    if (gConfigManager.getLimit(CurrencyType.POINTS).getStopWith().contains(CurrencyType.MONEY))
+
+		    CurrencyLimit cLimit = gConfigManager.getLimit(CurrencyType.POINTS);
+
+		    if (cLimit.getStopWith().contains(CurrencyType.MONEY))
 			income = 0D;
-		    if (gConfigManager.getLimit(CurrencyType.POINTS).getStopWith().contains(CurrencyType.EXP))
+
+		    if (cLimit.getStopWith().contains(CurrencyType.EXP))
 			expAmount = 0D;
 		}
 
@@ -1255,7 +1291,7 @@ public class Jobs extends JavaPlugin {
 
 	    BlockProtection bp = getBpManager().getBp(block.getLocation());
 	    if (bp != null) {
-		Long time = bp.getTime();
+		long time = bp.getTime();
 		Integer cd = getBpManager().getBlockDelayTime(block);
 
 		if (time == -1L) {
@@ -1309,8 +1345,7 @@ public class Jobs extends JavaPlugin {
 
 		    // Lets add protection in any case
 		    getBpManager().add(block, cd);
-
-		} else if (bp.isPaid().booleanValue() && bp.getTime() == -1L && cd != null && cd == -1) {
+		} else if (bp.isPaid() && bp.getTime() == -1L && cd != null && cd == -1) {
 		    getBpManager().add(block, cd);
 		    return false;
 		} else

@@ -174,12 +174,10 @@ public enum CMIEnchantment {
 	CMIEnchantment ec = map.get(name);
 
 	if (ec == null) {
-	    Enchantment enchant = gmap.get(name);
-	    if (enchant != null)
-		return enchant;
+	    return gmap.get(name);
 	}
 
-	return ec == null ? null : ec.getEnchantment();
+	return ec.getEnchantment();
     }
 
     public static CMIEnchantment get(Enchantment enchantment) {
@@ -208,11 +206,11 @@ public enum CMIEnchantment {
     }
 
     public String getName() {
-	return Util.firstToUpperCase(toString().replace('_', ' '));
+	return Util.firstToUpperCase(toString());
     }
 
     public static String getName(Enchantment enchant) {
-	CMIEnchantment ce = CMIEnchantment.get(enchant);
+	CMIEnchantment ce = get(enchant);
 	if (ce == null)
 	    return "Unknown";
 

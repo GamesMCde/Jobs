@@ -94,11 +94,13 @@ public class JobsListener implements Listener {
     }
 
     private boolean isInteractOk(Player player) {
-	if (!interactDelay.containsKey(player.getUniqueId())) {
+	Long delay = interactDelay.get(player.getUniqueId());
+	if (delay == null) {
 	    interactDelay.put(player.getUniqueId(), System.currentTimeMillis());
 	    return true;
 	}
-	long time = System.currentTimeMillis() - interactDelay.get(player.getUniqueId());
+
+	long time = System.currentTimeMillis() - delay;
 	interactDelay.put(player.getUniqueId(), System.currentTimeMillis());
 	return time > 100;
     }
@@ -124,8 +126,8 @@ public class JobsListener implements Listener {
 	if (player.getGameMode() == GameMode.CREATIVE)
 	    event.setCancelled(true);
 
-	Block block = event.getClickedBlock();
-	Location loc = block.getLocation();
+	Location loc = event.getClickedBlock().getLocation();
+
 	if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
 	    Jobs.getSelectionManager().placeLoc1(player, loc);
 	    player.sendMessage(Jobs.getLanguage().getMessage("command.area.output.selected1", "%x%", loc.getBlockX(), "%y%", loc.getBlockY(), "%z%", loc.getBlockZ()));
@@ -305,10 +307,11 @@ public class JobsListener implements Listener {
 	if (!Jobs.getGCManager().SignsEnabled)
 	    return;
 
+	String line1 = CMIChatColor.stripColor(plugin.getComplement().getLine(event, 1));
+
 	if (CMIChatColor.stripColor(plugin.getComplement().getLine(event, 0))
-	    .equalsIgnoreCase(CMIChatColor.stripColor(Jobs.getLanguage().getMessage("signs.topline"))) && !CMIChatColor.stripColor(
-	    plugin.getComplement().getLine(event, 1)).equalsIgnoreCase("toplist"))
-	    plugin.getComplement().setLine(event, 0, convert(Jobs.getLanguage().getMessage("signs.topline")));
+	    .equalsIgnoreCase(CMIChatColor.stripColor(Jobs.getLanguage().getMessage("signs.topline"))) && !line1.equalsIgnoreCase("toplist"))
+	    event.setLine(0, convert(Jobs.getLanguage().getMessage("signs.topline")));
 	else
 	    return;
 
@@ -318,11 +321,11 @@ public class JobsListener implements Listener {
 	    return;
 	}
 
-	String command = CMIChatColor.stripColor(plugin.getComplement().getLine(event, 1)).toLowerCase();
 	for (String key : Jobs.getLanguageManager().signKeys) {
 	    String secondLine = Jobs.getLanguage().getMessage("signs.secondline." + key);
-	    if (command.equalsIgnoreCase(CMIChatColor.stripColor(secondLine))) {
-		plugin.getComplement().setLine(event, 1, convert(secondLine));
+
+	    if (line1.equalsIgnoreCase(CMIChatColor.stripColor(secondLine))) {
+		event.setLine(1, convert(secondLine));
 		break;
 	    }
 	}
@@ -332,7 +335,7 @@ public class JobsListener implements Listener {
 	    return;
 
 	String color = Jobs.getGCManager().SignsColorizeJobName ? job.getChatColor().toString() : "";
-	plugin.getComplement().setLine(event, 2, convert(color + job.getName()));
+	event.setLine(2, convert(color + job.getName()));
     }
 
     private final Pattern pattern = Pattern.compile("&([0-9a-fk-or])");
@@ -424,7 +427,9 @@ public class JobsListener implements Listener {
 	}
 
 	for (Entry<Enchantment, Integer> oneE : enchants.entrySet()) {
-	    if (oneItem.getEnchants().containsKey(oneE.getKey()) && oneItem.getEnchants().get(oneE.getKey()) <= oneE.getValue()) {
+	    Integer value = oneItem.getEnchants().get(oneE.getKey());
+
+	    if (value != null && value <= oneE.getValue()) {
 		return true;
 	    }
 	}
@@ -565,7 +570,7 @@ public class JobsListener implements Listener {
 
 	ItemStack item = event.getItem();
 	ArmorTypes type = ArmorTypes.matchType(item);
-	if (ArmorTypes.matchType(item) == null)
+	if (type == null)
 	    return;
 
 	Location loc = event.getBlock().getLocation();

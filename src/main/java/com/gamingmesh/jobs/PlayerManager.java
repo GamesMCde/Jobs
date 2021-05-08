@@ -27,7 +27,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -335,7 +334,7 @@ public class PlayerManager {
 	    if (!resetID && jPlayer.getUserId() == -1)
 		continue;
 
-	    for (JobProgression oneJ : jPlayer.getJobProgression())
+	    for (JobProgression oneJ : jPlayer.progression)
 		dao.insertJob(jPlayer, oneJ);
 
 	    dao.saveLog(jPlayer);
@@ -462,17 +461,18 @@ public class PlayerManager {
      * @param job {@link Job}
      */
     public void joinJob(JobsPlayer jPlayer, Job job) {
-	if (jPlayer.isInJob(job))
+	if (jPlayer == null)
 	    return;
+
 	// let the user join the job
 	if (!jPlayer.joinJob(job))
 	    return;
 
 	// JobsJoin event
-	JobsJoinEvent jobsjoinevent = new JobsJoinEvent(jPlayer, job);
-	Bukkit.getServer().getPluginManager().callEvent(jobsjoinevent);
+	JobsJoinEvent jobsJoinEvent = new JobsJoinEvent(jPlayer, job);
+	Bukkit.getServer().getPluginManager().callEvent(jobsJoinEvent);
 	// If event is canceled, dont do anything
-	if (jobsjoinevent.isCancelled())
+	if (jobsJoinEvent.isCancelled())
 	    return;
 
 	Jobs.getJobsDAO().joinJob(jPlayer, jPlayer.getJobProgression(job));
@@ -494,13 +494,13 @@ public class PlayerManager {
      * @param job {@link Job}
      */
     public boolean leaveJob(JobsPlayer jPlayer, Job job) {
-	if (!jPlayer.isInJob(job))
+	if (jPlayer == null || !jPlayer.isInJob(job))
 	    return false;
 
-	JobsLeaveEvent jobsleaveevent = new JobsLeaveEvent(jPlayer, job);
-	Bukkit.getServer().getPluginManager().callEvent(jobsleaveevent);
+	JobsLeaveEvent jobsLeaveEvent = new JobsLeaveEvent(jPlayer, job);
+	Bukkit.getServer().getPluginManager().callEvent(jobsLeaveEvent);
 	// If event is canceled, don't do anything
-	if (jobsleaveevent.isCancelled())
+	if (jobsLeaveEvent.isCancelled())
 	    return false;
 
 	Jobs.getJobsDAO().recordToArchive(jPlayer, job);
@@ -510,6 +510,7 @@ public class PlayerManager {
 
 	if (!Jobs.getJobsDAO().quitJob(jPlayer, job))
 	    return false;
+
 	PerformCommands.performCommandsOnLeave(jPlayer, job);
 	Jobs.leaveSlot(job);
 
@@ -526,7 +527,7 @@ public class PlayerManager {
      * @param jPlayer {@link JobsPlayer}
      */
     public void leaveAllJobs(JobsPlayer jPlayer) {
-	for (JobProgression job : new ArrayList<>(jPlayer.getJobProgression()))
+	for (JobProgression job : new ArrayList<>(jPlayer.progression))
 	    leaveJob(jPlayer, job.getJob());
 
 	jPlayer.leaveAllJobs();
@@ -586,11 +587,15 @@ public class PlayerManager {
      * @param experience - experience gained
      */
     public void addExperience(JobsPlayer jPlayer, Job job, double experience) {
+	if (experience > Double.MAX_VALUE)
+	    return;
+
 	JobProgression prog = jPlayer.getJobProgression(job);
-	if (prog == null || experience > Double.MAX_VALUE)
+	if (prog == null)
 	    return;
 
 	int oldLevel = prog.getLevel();
+
 	if (prog.addExperience(experience)) {
 	    performLevelUp(jPlayer, job, oldLevel);
 	    Jobs.getSignUtil().updateAllSign(job);
@@ -607,8 +612,11 @@ public class PlayerManager {
      * @param experience - experience gained
      */
     public void removeExperience(JobsPlayer jPlayer, Job job, double experience) {
+	if (experience > Double.MAX_VALUE)
+	    return;
+
 	JobProgression prog = jPlayer.getJobProgression(job);
-	if (prog == null || experience > Double.MAX_VALUE)
+	if (prog == null)
 	    return;
 
 	prog.addExperience(-experience);
@@ -635,15 +643,16 @@ public class PlayerManager {
 	if (prog.getLevel() < oldLevel) {
 	    String message = Jobs.getLanguage().getMessage("message.leveldown.message");
 
-	    message = message.replace("%jobname%", job.getNameWithColor());
+	    message = message.replace("%jobname%", job.getJobDisplayName());
 	    message = message.replace("%playername%", player != null ? plugin.getComplement().getDisplayName(player) : jPlayer.getName());
-	    message = message.replace("%joblevel%", "" + prog.getLevel());
-	    message = message.replace("%lostLevel%", "" + oldLevel);
+	    message = message.replace("%joblevel%", Integer.toString(prog.getLevel()));
+	    message = message.replace("%lostLevel%", Integer.toString(oldLevel));
 
 	    if (player != null) {
 		for (String line : message.split("\n")) {
 		    if (Jobs.getGCManager().LevelChangeActionBar)
 			ActionBarManager.send(player, line);
+
 		    if (Jobs.getGCManager().LevelChangeChat)
 			player.sendMessage(line);
 		}
@@ -659,7 +668,7 @@ public class PlayerManager {
 	// LevelUp event
 	JobsLevelUpEvent levelUpEvent = new JobsLevelUpEvent(
 	    jPlayer,
-	    job.getName(),
+	    job,
 	    prog.getLevel(),
 	    Jobs.getTitleManager().getTitle(oldLevel, prog.getJob().getName()),
 	    Jobs.getTitleManager().getTitle(prog.getLevel(), prog.getJob().getName()),
@@ -684,11 +693,11 @@ public class PlayerManager {
 	} catch (Exception e) {
 	}
 
-	if (Jobs.getGCManager().FireworkLevelupUse) {
+	if (Jobs.getGCManager().FireworkLevelupUse && player != null) {
 	    Bukkit.getServer().getScheduler().runTaskLater(plugin, new Runnable() {
 		@Override
 		public void run() {
-		    if (player == null || !player.isOnline())
+		    if (!player.isOnline())
 			return;
 
 		    Firework f = player.getWorld().spawn(player.getLocation(), Firework.class);
@@ -716,62 +725,16 @@ public class PlayerManager {
 			    break;
 			}
 
-			int r1i = r.nextInt(17) + 1;
-			int r2i = r.nextInt(17) + 1;
-
-			Color c1 = Util.getColor(r1i);
-			Color c2 = Util.getColor(r2i);
+			Color c1 = Util.getColor(r.nextInt(17) + 1);
+			Color c2 = Util.getColor(r.nextInt(17) + 1);
 
 			FireworkEffect effect = FireworkEffect.builder().flicker(r.nextBoolean()).withColor(c1)
 			    .withFade(c2).with(type).trail(r.nextBoolean()).build();
 			fm.addEffect(effect);
 
-			int rp = r.nextInt(2) + 1;
-			fm.setPower(rp);
+			fm.setPower(r.nextInt(2) + 1);
 		    } else {
-			Pattern comma = Pattern.compile(",", 16);
-			List<String> colorStrings = Jobs.getGCManager().FwColors;
-			Color[] colors = new Color[colorStrings.size()];
-
-			for (int s = 0; s < colorStrings.size(); s++) {
-			    String colorString = colorStrings.get(s);
-			    String[] sSplit = comma.split(colorString);
-			    if (sSplit.length < 3) {
-				continue;
-			    }
-
-			    int[] colorRGB = new int[3];
-			    for (int i = 0; i < 3; i++) {
-				try {
-				    colorRGB[i] = Integer.parseInt(sSplit[i]);
-				} catch (NumberFormatException e) {
-				}
-			    }
-
-			    int r = colorRGB[0], g = colorRGB[1], b = colorRGB[2];
-			    if (r > 255 || r < 0) {
-				r = 1;
-			    }
-
-			    if (g > 255 || g < 0) {
-				g = 5;
-			    }
-
-			    if (b > 255 || b < 0) {
-				b = 3;
-			    }
-
-			    colors[s] = Color.fromRGB(r, g, b);
-			}
-
-			fm.addEffect(FireworkEffect.builder()
-			    .flicker(Jobs.getGCManager().UseFlicker)
-			    .trail(Jobs.getGCManager().UseTrail)
-			    .with(Type.valueOf(Jobs.getGCManager().FireworkType))
-			    .withColor(colors)
-			    .withFade(colors)
-			    .build());
-
+			fm.addEffect(Jobs.getGCManager().getFireworkEffect());
 			fm.setPower(Jobs.getGCManager().FireworkPower);
 		    }
 
@@ -783,14 +746,14 @@ public class PlayerManager {
 	String message = Jobs.getLanguage().getMessage("message.levelup." + (Jobs.getGCManager().isBroadcastingLevelups()
 	    ? "broadcast" : "nobroadcast"));
 
-	message = message.replace("%jobname%", job.getNameWithColor());
+	message = message.replace("%jobname%", job.getJobDisplayName());
 
 	if (levelUpEvent.getOldTitle() != null)
 	    message = message.replace("%titlename%", levelUpEvent.getOldTitle()
 		.getChatColor().toString() + levelUpEvent.getOldTitle().getName());
 
 	message = message.replace("%playername%", player != null ? plugin.getComplement().getDisplayName(player) : jPlayer.getName());
-	message = message.replace("%joblevel%", "" + prog.getLevel());
+	message = message.replace("%joblevel%", Integer.toString(prog.getLevel()));
 
 	for (String line : message.split("\n")) {
 	    if (Jobs.getGCManager().isBroadcastingLevelups()) {
@@ -823,7 +786,7 @@ public class PlayerManager {
 	    message = message.replace("%playername%", player != null ? plugin.getComplement().getDisplayName(player) : jPlayer.getName());
 	    message = message.replace("%titlename%", levelUpEvent.getNewTitle()
 		.getChatColor().toString() + levelUpEvent.getNewTitle().getName());
-	    message = message.replace("%jobname%", job.getNameWithColor());
+	    message = message.replace("%jobname%", job.getJobDisplayName());
 
 	    for (String line : message.split("\n")) {
 		if (Jobs.getGCManager().isBroadcastingSkillups()) {
@@ -842,29 +805,29 @@ public class PlayerManager {
 	performCommandOnLevelUp(jPlayer, prog.getJob(), oldLevel);
 	Jobs.getSignUtil().updateAllSign(job);
 
-	if (player != null && prog.getLevel() == jPlayer.getMaxJobLevelAllowed(prog.getJob())) {
+	if (player != null && !job.getMaxLevelCommands().isEmpty() && prog.getLevel() == jPlayer.getMaxJobLevelAllowed(prog.getJob())) {
 	    for (String cmd : job.getMaxLevelCommands()) {
 		if (cmd.isEmpty()) {
 		    continue;
 		}
 
-		if (cmd.contains(":")) {
-		    String[] split = cmd.split(":", 2);
-
-		    String command = "";
-		    if (split.length > 1) {
-			command = split[1];
-			command = command.replace("[playerName]", player.getName());
-			command = command.replace("[job]", job.getName());
-		    }
-
-		    if (split[0].equalsIgnoreCase("player:")) {
-			player.performCommand(command);
-		    } else {
-			Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
-		    }
-		} else {
+		String[] split = cmd.split(":", 2);
+		if (split.length == 0) {
 		    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+		    continue;
+		}
+
+		String command = "";
+		if (split.length > 1) {
+		    command = split[1];
+		    command = command.replace("[playerName]", player.getName());
+		    command = command.replace("[job]", job.getName());
+		}
+
+		if (split[0].equalsIgnoreCase("player:")) {
+		    player.performCommand(command);
+		} else {
+		    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
 		}
 	    }
 	}
@@ -921,7 +884,7 @@ public class PlayerManager {
 	    return Jobs.getGCManager().getMaxJobs();
 	}
 
-	int max = Jobs.getPermissionManager().getMaxPermission(jPlayer, "jobs.max", false).intValue();
+	int max = (int) Jobs.getPermissionManager().getMaxPermission(jPlayer, "jobs.max", false);
 	return max == 0 ? Jobs.getGCManager().getMaxJobs() : max;
     }
 
@@ -950,7 +913,7 @@ public class PlayerManager {
      */
     public void reload() {
 	for (JobsPlayer jPlayer : players.values()) {
-	    for (JobProgression progression : jPlayer.getJobProgression()) {
+	    for (JobProgression progression : jPlayer.progression) {
 		Job job = Jobs.getJob(progression.getJob().getName());
 		if (job != null)
 		    progression.setJob(job);
@@ -985,9 +948,10 @@ public class PlayerManager {
 	return c.getBoostMultiplier();
     }
 
-    public BoostMultiplier getInventoryBoost(Player player, Job prog) {
+    public BoostMultiplier getInventoryBoost(Player player, Job job) {
 	BoostMultiplier data = new BoostMultiplier();
-	if (player == null || prog == null)
+
+	if (player == null || job == null)
 	    return data;
 
 	ItemStack iih;
@@ -1013,9 +977,11 @@ public class PlayerManager {
 	    }
 	}
 
+	JobProgression progress = getJobsPlayer(player).getJobProgression(job);
+
 	for (JobItems jitem : jitems) {
-	    if (jitem != null && jitem.getJobs().contains(prog)) {
-		data.add(jitem.getBoost(getJobsPlayer(player).getJobProgression(prog)));
+	    if (jitem != null && jitem.getJobs().contains(job)) {
+		data.add(jitem.getBoost(progress));
 	    }
 	}
 
@@ -1055,13 +1021,6 @@ public class PlayerManager {
 
 	return ItemBoostManager.getItemByKey(itemName.toString());
     }
-
-//    public BoostMultiplier getJobsBoostByNbt(ItemStack item) {
-//	JobItems b = getJobsItemByNbt(item);
-//	if (b == null)
-//	    return null;
-//	return b.getBoost();
-//    }
 
     public enum BoostOf {
 	McMMO, PetPay, NearSpawner, Permission, Global, Dynamic, Item, Area
@@ -1113,7 +1072,7 @@ public class PlayerManager {
 	}
 
 	if (victim != null && victim.hasMetadata(mobSpawnerMetadata)) {
-	    Double amount = Jobs.getPermissionManager().getMaxPermission(player, "jobs.nearspawner", false, false);
+	    double amount = Jobs.getPermissionManager().getMaxPermission(player, "jobs.nearspawner", false, false);
 	    if (amount != 0D)
 		boost.add(BoostOf.NearSpawner, new BoostMultiplier().add(amount));
 	}
@@ -1121,10 +1080,11 @@ public class PlayerManager {
 	if (getall) {
 	    if (petPay == 0D)
 		petPay = Jobs.getPermissionManager().getMaxPermission(player, "jobs.petpay", force, false);
-	    else
+
+	    if (petPay != 0D)
 		boost.add(BoostOf.PetPay, new BoostMultiplier().add(petPay));
 
-	    Double amount = Jobs.getPermissionManager().getMaxPermission(player, "jobs.nearspawner", force);
+	    double amount = Jobs.getPermissionManager().getMaxPermission(player, "jobs.nearspawner", force);
 	    if (amount != 0D)
 		boost.add(BoostOf.NearSpawner, new BoostMultiplier().add(amount));
 	}
@@ -1160,7 +1120,7 @@ public class PlayerManager {
 		    return;
 
 		int confMaxJobs = Jobs.getGCManager().getMaxJobs();
-		short playerMaxJobs = (short) jPlayer.getJobProgression().size();
+		short playerMaxJobs = (short) jPlayer.progression.size();
 
 		if (confMaxJobs > 0 && playerMaxJobs >= confMaxJobs && !getJobsLimit(jPlayer, playerMaxJobs))
 		    return;

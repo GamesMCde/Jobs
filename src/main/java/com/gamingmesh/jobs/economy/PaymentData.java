@@ -45,8 +45,12 @@ public class PaymentData {
 	return payments.get(type).isReseted();
     }
 
-    public Double getAmount(CurrencyType type) {
-	return !payments.containsKey(type) ? 0D : (int) (payments.get(type).getAmount() * 100) / 100D;
+    public double getAmount(CurrencyType type) {
+	if (type == null)
+	    return 0D;
+
+	LimitsData data = payments.get(type);
+	return data == null ? 0D : (int) (data.getAmount() * 100) / 100D;
     }
 
     public Double getAmountBylimit(CurrencyType type, int limit) {
@@ -77,8 +81,8 @@ public class PaymentData {
 	payments.put(type, new LimitsData(type, time == null ? System.currentTimeMillis() : time, Payment));
     }
 
-    public void addAmount(CurrencyType type, Double Payment) {
-	payments.get(type).addAmount(Payment);
+    public void addAmount(CurrencyType type, double payment) {
+	payments.get(type).addAmount(payment);
     }
 
     public long getLeftTime(CurrencyType type) {

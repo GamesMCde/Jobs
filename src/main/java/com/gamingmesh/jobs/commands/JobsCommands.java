@@ -102,12 +102,9 @@ public class JobsCommands implements CommandExecutor {
 
     private String getUsage(String cmd) {
 	String cmdString = Jobs.getLanguage().getMessage("command.help.output.cmdFormat", "[command]", Jobs.getLanguage().getMessage("command.help.output.label") + " " + cmd);
-	String key = "command." + cmd + ".help.args";
-	if (Jobs.getLanguage().containsKey(key) && !Jobs.getLanguage().getMessage(key).isEmpty()) {
-	    cmdString = cmdString.replace("[arguments]", Jobs.getLanguage().getMessage(key));
-	} else
-	    cmdString = cmdString.replace("[arguments]", "");
+	String msg = Jobs.getLanguage().getMessage("command." + cmd + ".help.args");
 
+	cmdString = cmdString.replace("[arguments]", !msg.isEmpty() ? msg : "");
 	return cmdString;
     }
 
@@ -148,8 +145,10 @@ public class JobsCommands implements CommandExecutor {
 
     public Set<String> getCommands(CommandSender sender) {
 	Set<String> temp = new TreeSet<>();
+	boolean senderIsPlayer = sender instanceof Player;
+
 	for (String cmd : commandList) {
-	    if (sender instanceof Player && !hasCommandPermission(sender, cmd))
+	    if (senderIsPlayer && !hasCommandPermission(sender, cmd))
 		continue;
 
 	    temp.add(cmd);
@@ -267,7 +266,7 @@ public class JobsCommands implements CommandExecutor {
 			message.add(m);
 		} else if (showAllTypes == 0) {
 		    String myMessage = Jobs.getLanguage().getMessage("command.info.output." + actionType.getName().toLowerCase() + ".none");
-		    myMessage = myMessage.replace("%jobname%", job.getNameWithColor());
+		    myMessage = myMessage.replace("%jobname%", job.getJobDisplayName());
 		    message.add(myMessage);
 		}
 	    }
@@ -291,11 +290,14 @@ public class JobsCommands implements CommandExecutor {
 
 	String t = type.isEmpty() ? "" : " " + type;
 
-	if (sender instanceof Player)
-	    if (sender.getName().equalsIgnoreCase(player.getName()))
+	if (isPlayer) {
+	    String pName = player.getName();
+
+	    if (sender.getName().equalsIgnoreCase(pName))
 		plugin.showPagination(sender, pi, "jobs info " + job.getName() + t);
 	    else
-		plugin.showPagination(sender, pi, "jobs playerinfo " + player.getName() + " " + job.getName() + t);
+		plugin.showPagination(sender, pi, "jobs playerinfo " + pName + " " + job.getName() + t);
+	}
     }
 
     /**
@@ -316,10 +318,9 @@ public class JobsCommands implements CommandExecutor {
 
 	JobProgression prog = player.getJobProgression(job);
 	int level = prog != null ? prog.getLevel() : 1;
-	int numjobs = player.getJobProgression().size();
+	int numjobs = player.progression.size();
 
-	List<JobInfo> jobInfo = job.getJobInfo(type);
-	for (JobInfo info : jobInfo) {
+	for (JobInfo info : job.getJobInfo(type)) {
 
 	    String materialName = info.getRealisticName();
 
@@ -383,7 +384,7 @@ public class JobsCommands implements CommandExecutor {
 	Title title = Jobs.getTitleManager().getTitle(jobProg.getLevel(), jobProg.getJob().getName());
 	String message = Jobs.getLanguage().getMessage(path,
 	    "%joblevel%", jobProg.getLevel(),
-	    "%jobname%", jobProg.getJob().getNameWithColor(),
+	    "%jobname%", jobProg.getJob().getJobDisplayName(),
 	    "%jobxp%", Math.round(jobProg.getExperience() * 100.0) / 100.0,
 	    "%jobmaxxp%", jobProg.getMaxExperience(),
 	    "%titlename%", title == null ? "Unknown" : title.getName());
@@ -427,7 +428,7 @@ public class JobsCommands implements CommandExecutor {
 	double exp = jPlayer.getExpAfterRejoin(jobProg, jPlayer.getLevelAfterRejoin(jobProg));
 	String message = Jobs.getLanguage().getMessage("command.stats.output.message",
 	    "%joblevel%", level,
-	    "%jobname%", jobProg.getJob().getNameWithColor(),
+	    "%jobname%", jobProg.getJob().getJobDisplayName(),
 	    "%jobxp%", Math.round(exp * 100.0) / 100.0,
 	    "%jobmaxxp%", jobProg.getMaxExperience(level));
 	return " " + jobProgressMessage(jobProg.getMaxExperience(level), exp) + " " + message;
