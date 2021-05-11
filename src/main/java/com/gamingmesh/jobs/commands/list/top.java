@@ -60,6 +60,8 @@ public class top implements Cmd {
 	    return true;
 	}
 
+	FullList.sort(TopList::compareTo);
+	
 	player.sendMessage(Jobs.getLanguage().getMessage("command.top.help.info"));
 
 	int place = 1;
