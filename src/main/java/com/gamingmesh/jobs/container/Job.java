@@ -199,7 +199,8 @@ public class Job {
      * @return true if same
      */
     public boolean isSame(Job job) {
-	return job != null && (id == job.getId() || fullName.equalsIgnoreCase(job.getName()));
+	return job != null && (id == job.getId() || jobName.equalsIgnoreCase(job.getName())
+	    || fullName.equalsIgnoreCase(job.getJobFullName()) || fullName.equalsIgnoreCase(job.getName()));
     }
 
     /**
@@ -654,7 +655,7 @@ public class Job {
 
     public boolean isWorldBlackListed(Block block, Entity ent) {
 	if (worldBlacklist.isEmpty())
-	    return isReversedWorldBlacklist();
+	    return reversedWorldBlacklist;
 
 	if (block != null)
 	    return worldBlacklist.contains(block.getWorld().getName()) != reversedWorldBlacklist;

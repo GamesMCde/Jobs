@@ -445,8 +445,9 @@ public class Jobs extends JavaPlugin {
     }
 
     /**
-     * Retrieves the list of active jobs
-     * @return list of jobs
+     * Returns the list of available jobs.
+     * 
+     * @return an unmodifiable list of jobs
      */
     public static List<Job> getJobs() {
 	return Collections.unmodifiableList(jobs);
@@ -522,6 +523,7 @@ public class Jobs extends JavaPlugin {
 	    Map<Integer, Map<String, Log>> playersLogs = dao.getAllLogs();
 	    Map<Integer, ArchivedJobs> playersArchives = dao.getAllArchivedJobs();
 	    Map<Integer, PaymentData> playersLimits = dao.loadPlayerLimits();
+
 	    for (Iterator<PlayerInfo> it = temp.values().iterator(); it.hasNext();) {
 		PlayerInfo one = it.next();
 		int id = one.getID();
@@ -888,7 +890,6 @@ public class Jobs extends JavaPlugin {
 	}
 
 	instance = null;
-	consoleMsg("&e[Jobs] &2Plugin has been disabled successfully.");
     }
 
     private static void checkDailyQuests(JobsPlayer jPlayer, Job job, ActionInfo info) {
@@ -1305,8 +1306,8 @@ public class Jobs extends JavaPlugin {
 		}
 
 		if ((time > System.currentTimeMillis() || bp.isPaid()) && bp.getAction() != DBAction.DELETE) {
-		    int sec = Math.round((time - System.currentTimeMillis()) / 1000L);
 		    if (inform && player.canGetPaid(info)) {
+			int sec = Math.round((time - System.currentTimeMillis()) / 1000L);
 			ActionBarManager.send(player.getPlayer(), lManager.getMessage("message.blocktimer", "[time]", sec));
 		    }
 
@@ -1334,8 +1335,8 @@ public class Jobs extends JavaPlugin {
 		    }
 
 		    if ((time > System.currentTimeMillis() || bp.isPaid()) && bp.getAction() != DBAction.DELETE) {
-			int sec = Math.round((time - System.currentTimeMillis()) / 1000L);
 			if (inform && player.canGetPaid(info)) {
+			    int sec = Math.round((time - System.currentTimeMillis()) / 1000L);
 			    ActionBarManager.send(player.getPlayer(), lManager.getMessage("message.blocktimer", "[time]", sec));
 			}
 
@@ -1398,7 +1399,9 @@ public class Jobs extends JavaPlugin {
     }
 
     public static void perform(JobsPlayer jPlayer, ActionInfo info, BufferedPayment payment, Job job) {
-	JobsExpGainEvent jobsExpGainEvent = new JobsExpGainEvent(payment.getOfflinePlayer(), job, payment.get(CurrencyType.EXP));
+	double expPayment = payment.get(CurrencyType.EXP);
+
+	JobsExpGainEvent jobsExpGainEvent = new JobsExpGainEvent(payment.getOfflinePlayer(), job, expPayment);
 	Bukkit.getServer().getPluginManager().callEvent(jobsExpGainEvent);
 	// If event is canceled, don't do anything
 	if (jobsExpGainEvent.isCancelled())
@@ -1424,7 +1427,7 @@ public class Jobs extends JavaPlugin {
 	    getLoging().recordToLog(jPlayer, info, payment.getPayment());
 	}
 
-	if (prog.addExperience(payment.get(CurrencyType.EXP)))
+	if (prog.addExperience(expPayment))
 	    getPlayerManager().performLevelUp(jPlayer, prog.getJob(), oldLevel);
     }
 
@@ -1475,7 +1478,9 @@ public class Jobs extends JavaPlugin {
 	nextPage = currentPage < pageCount ? nextPage : currentPage;
 
 	int prevpage = currentPage - 1;
-	prevpage = currentPage > 1 ? prevpage : currentPage;
+	if (currentPage <= 1) {
+	    prevpage = currentPage;
+	}
 
 	RawMessage rm = new RawMessage()
 	    .addText((currentPage > 1 ? lManager.getMessage("command.help.output.prevPage") : lManager.getMessage("command.help.output.prevPageOff")))

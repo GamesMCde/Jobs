@@ -120,12 +120,6 @@ public class JobsPaymentListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void villagerTradeInventoryClick(InventoryClickEvent event) {
-	if (event.isCancelled())
-	    return;
-
-	if (!Jobs.getGCManager().canPerformActionInWorld(event.getWhoClicked().getWorld()))
-	    return;
-
 	// If event is nothing or place, do nothing
 	switch (event.getAction()) {
 	case NOTHING:
@@ -136,6 +130,9 @@ public class JobsPaymentListener implements Listener {
 	default:
 	    break;
 	}
+
+	if (!Jobs.getGCManager().canPerformActionInWorld(event.getWhoClicked().getWorld()))
+	    return;
 
 	if (event.getInventory().getType() != InventoryType.MERCHANT || event.getSlot() != 2 || event.getSlotType() != SlotType.RESULT)
 	    return;
@@ -278,8 +275,9 @@ public class JobsPaymentListener implements Listener {
 	    return;
 
 	Sheep sheep = (Sheep) event.getEntity();
+
 	// mob spawner, no payment or experience
-	if (sheep.hasMetadata(Jobs.getPlayerManager().getMobSpawnerMetadata()) && !Jobs.getGCManager().payNearSpawner()) {
+	if (!Jobs.getGCManager().payNearSpawner() && sheep.hasMetadata(Jobs.getPlayerManager().getMobSpawnerMetadata())) {
 	    sheep.removeMetadata(Jobs.getPlayerManager().getMobSpawnerMetadata(), plugin);
 	    return;
 	}
@@ -364,7 +362,7 @@ public class JobsPaymentListener implements Listener {
 	    Jobs.action(jPlayer, new ItemActionInfo(contents, ActionType.BREW));
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onBlockBreak(BlockBreakEvent event) {
 	final Block block = event.getBlock();
 
@@ -510,7 +508,7 @@ public class JobsPaymentListener implements Listener {
 	}
 
 	// mob spawner, no payment or experience
-	if (animal.hasMetadata(Jobs.getPlayerManager().getMobSpawnerMetadata()) && !Jobs.getGCManager().payNearSpawner()) {
+	if (!Jobs.getGCManager().payNearSpawner() && animal.hasMetadata(Jobs.getPlayerManager().getMobSpawnerMetadata())) {
 	    animal.removeMetadata(Jobs.getPlayerManager().getMobSpawnerMetadata(), plugin);
 	    return;
 	}
@@ -915,9 +913,6 @@ public class JobsPaymentListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEnchantItem(EnchantItemEvent event) {
-	if (event.isCancelled())
-	    return;
-
 	if (!Jobs.getGCManager().canPerformActionInWorld(event.getEnchanter().getWorld()))
 	    return;
 
@@ -987,10 +982,9 @@ public class JobsPaymentListener implements Listener {
 	if (!Jobs.getGCManager().PreventHopperFillUps || event.getItem().getType() == Material.AIR)
 	    return;
 
-	String type = event.getDestination().getType().toString();
 	Block block = null;
 
-	switch (type.toLowerCase()) {
+	switch (event.getDestination().getType().toString().toLowerCase()) {
 	case "furnace":
 	    block = ((Furnace) event.getDestination().getHolder()).getBlock();
 	    break;
@@ -1068,11 +1062,12 @@ public class JobsPaymentListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onEntityDamageByPlayer(EntityDamageEvent event) {
-	if (!Jobs.getGCManager().MonsterDamageUse || !Jobs.getGCManager().canPerformActionInWorld(event.getEntity().getWorld()))
+	if (!Jobs.getGCManager().MonsterDamageUse || !(event instanceof EntityDamageByEntityEvent)
+	    || !Jobs.getGCManager().canPerformActionInWorld(event.getEntity().getWorld()))
 	    return;
 
 	Entity ent = event.getEntity();
-	if (ent instanceof Player || !(ent instanceof Damageable) || !(event instanceof EntityDamageByEntityEvent))
+	if (ent instanceof Player || !(ent instanceof Damageable))
 	    return;
 
 	if (!(((EntityDamageByEntityEvent) event).getDamager() instanceof Player))
@@ -1125,8 +1120,8 @@ public class JobsPaymentListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityDeath(EntityDeathEvent event) {
-	if (!Jobs.getGCManager().canPerformActionInWorld(event.getEntity().getWorld())
-	    || !(event.getEntity().getLastDamageCause() instanceof EntityDamageByEntityEvent))
+	if (!(event.getEntity().getLastDamageCause() instanceof EntityDamageByEntityEvent) ||
+	    !Jobs.getGCManager().canPerformActionInWorld(event.getEntity().getWorld()))
 	    return;
 
 	EntityDamageByEntityEvent e = (EntityDamageByEntityEvent) event.getEntity().getLastDamageCause();
@@ -1458,12 +1453,14 @@ public class JobsPaymentListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerEat(FoodLevelChangeEvent event) {
-	if (!(event.getEntity() instanceof Player) || !Jobs.getGCManager().canPerformActionInWorld(event.getEntity().getWorld())
-			|| event.getEntity().hasMetadata("NPC"))
+	HumanEntity human = event.getEntity();
+
+	if (event.getFoodLevel() <= human.getFoodLevel() || !(human instanceof Player)
+	    || !Jobs.getGCManager().canPerformActionInWorld(human.getWorld()) || human.hasMetadata("NPC"))
 	    return;
 
-	Player player = (Player) event.getEntity();
-	if (!player.isOnline() || event.getFoodLevel() <= player.getFoodLevel())
+	Player player = (Player) human;
+	if (!player.isOnline())
 	    return;
 
 	// check if in creative
@@ -1546,11 +1543,8 @@ public class JobsPaymentListener implements Listener {
 	}
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerInteract(PlayerInteractEvent event) {
-	if (event.isCancelled())
-	    return;
-
 	Player p = event.getPlayer();
 	if (!Jobs.getGCManager().canPerformActionInWorld(p.getWorld()))
 	    return;
@@ -1622,8 +1616,7 @@ public class JobsPaymentListener implements Listener {
 		    "[current]", blockOwner.getTotal(jPlayer.getUniqueId()),
 		    "[max]", jPlayer.getMaxOwnerShipAllowed(blockOwner.getType()) == 0 ? "-" : jPlayer.getMaxOwnerShipAllowed(blockOwner.getType())));
 	    }
-	} else if (Version.isCurrentEqualOrHigher(Version.v1_13_R1) &&
-	    !block.getType().toString().startsWith("STRIPPED_") && block.getType().toString().endsWith("_LOG") &&
+	} else if (!block.getType().toString().startsWith("STRIPPED_") &&
 	    event.getAction() == Action.RIGHT_CLICK_BLOCK && jPlayer != null && hand.toString().endsWith("_AXE")) {
 	    // check if player is riding
 	    if (Jobs.getGCManager().disablePaymentIfRiding && p.isInsideVehicle())
@@ -1634,20 +1627,21 @@ public class JobsPaymentListener implements Listener {
 		- Jobs.getNms().getDurability(Jobs.getNms().getItemInMainHand(p)) != hand.getMaxDurability())
 		return;
 
-	    Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> Jobs.action(jPlayer, new BlockActionInfo(block, ActionType.STRIPLOGS), block), 1);
+		// either it's version 1.13+ and we're trying to strip a normal log like oak,
+		// or it's 1.16+ and we're trying to strip a fungi like warped stem
+		if ((Version.isCurrentEqualOrHigher(Version.v1_13_R1) && (block.getType().toString().endsWith("_LOG") || block.getType().toString().endsWith("_WOOD"))) ||
+		    (Version.isCurrentEqualOrHigher(Version.v1_16_R1) && (block.getType().toString().endsWith("_STEM") || block.getType().toString().endsWith("_HYPHAE"))))
+			Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> Jobs.action(jPlayer, new BlockActionInfo(block, ActionType.STRIPLOGS), block), 1);
 	}
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onExplore(JobsChunkChangeEvent event) {
-	if (event.isCancelled())
+	if (!Jobs.getExplore().isExploreEnabled())
 	    return;
 
 	Player player = event.getPlayer();
-	if (player == null || !player.isOnline() || !Jobs.getGCManager().canPerformActionInWorld(player.getWorld()))
-	    return;
-
-	if (!Jobs.getExplore().isExploreEnabled())
+	if (player == null || !player.isOnline())
 	    return;
 
 	// check if in spectator, #330
@@ -1665,11 +1659,13 @@ public class JobsPaymentListener implements Listener {
 	    && !Jobs.getGCManager().payExploringWhenGliding && player.isGliding())
 	    return;
 
+	org.bukkit.World playerWorld = player.getWorld();
+
 	// check if in creative
-	if (!payIfCreative(player))
+	if (!Jobs.getGCManager().canPerformActionInWorld(playerWorld) || !payIfCreative(player))
 	    return;
 
-	if (!Jobs.getPermissionHandler().hasWorldPermission(player, player.getLocation().getWorld().getName()))
+	if (!Jobs.getPermissionHandler().hasWorldPermission(player, playerWorld.getName()))
 	    return;
 
 	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
@@ -1689,8 +1685,7 @@ public class JobsPaymentListener implements Listener {
 	    if (Version.isCurrentEqualOrHigher(Version.v1_13_R1) && entity.isPersistent())
 		break;
 
-	    if (entity.hasMetadata(Jobs.getPlayerManager().getMobSpawnerMetadata()))
-		entity.removeMetadata(Jobs.getPlayerManager().getMobSpawnerMetadata(), plugin);
+	    entity.removeMetadata(Jobs.getPlayerManager().getMobSpawnerMetadata(), plugin);
 	}
     }
 

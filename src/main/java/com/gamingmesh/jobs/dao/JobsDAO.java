@@ -505,33 +505,14 @@ public abstract class JobsDAO {
     public abstract boolean drop(String table);
 
     public boolean isConnected() {
+	if (pool == null)
+	    return false;
+
 	try {
-	    return pool != null && pool.getConnection() != null && !pool.getConnection().isClosed();
+	    JobsConnection conn = pool.getConnection();
+	    return conn != null && !conn.isClosed();
 	} catch (SQLException e) {
 	    return false;
-	}
-    }
-
-    public void setAutoCommit(boolean state) {
-	JobsConnection conn = getConnection();
-	if (conn == null)
-	    return;
-	try {
-	    conn.setAutoCommit(state);
-	} catch (SQLException e) {
-	    e.printStackTrace();
-	}
-    }
-
-    public void commit() {
-	JobsConnection conn = getConnection();
-	if (conn == null)
-	    return;
-
-	try {
-	    conn.commit();
-	} catch (SQLException e) {
-	    e.printStackTrace();
 	}
     }
 
@@ -2619,12 +2600,8 @@ public abstract class JobsDAO {
 	    return;
 	}
 
-	Statement stmt = null;
-	try {
-	    stmt = conn.createStatement();
+	try (Statement stmt = conn.createStatement()) {
 	    stmt.execute(sql);
-	} finally {
-	    close(stmt);
 	}
     }
 
@@ -2657,7 +2634,7 @@ public abstract class JobsDAO {
     /**
      * Close all active database handles
      */
-    public synchronized void closeConnections() {
+    public void closeConnections() {
 	pool.closeConnection();
     }
 

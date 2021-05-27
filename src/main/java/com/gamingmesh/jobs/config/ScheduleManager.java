@@ -63,16 +63,15 @@ public class ScheduleManager {
 	    int from = one.getFrom();
 	    int until = one.getUntil();
 
-	    List<String> days = one.getDays();
-
 	    if (one.isStarted() && one.getBroadcastInfoOn() < System.currentTimeMillis() && one.getBroadcastInterval() > 0) {
 		one.setBroadcastInfoOn(System.currentTimeMillis() + one.getBroadcastInterval() * 60 * 1000);
 		plugin.getComplement().broadcastMessage(one.getMessageToBroadcast());
 	    }
 
+	    boolean containsDays = one.getDays().contains(currentDayName) || one.getDays().contains("all");
+
 	    if (((one.isNextDay() && (current >= from && current < until || current >= one.getNextFrom() && current < one.getNextUntil()) && !one
-		.isStarted()) || !one.isNextDay() && (current >= from && current < until)) && (days.contains(currentDayName) || days.contains("all")) && !one
-		    .isStarted()) {
+		.isStarted()) || !one.isNextDay() && (current >= from && current < until)) && containsDays && !one.isStarted()) {
 
 		JobsScheduleStartEvent event = new JobsScheduleStartEvent(one);
 		Bukkit.getPluginManager().callEvent(event);
@@ -95,8 +94,8 @@ public class ScheduleManager {
 		one.setStarted(true);
 		one.setStoped(false);
 		break;
-	    } else if (((one.isNextDay() && current > one.getNextUntil() && current < one.getFrom() && !one.isStoped()) || !one.isNextDay() && current > until
-		&& ((days.contains(currentDayName)) || days.contains("all"))) && !one.isStoped()) {
+	    } else if (((one.isNextDay() && current > one.getNextUntil() && current < one.getFrom() && !one.isStoped()) || (!one.isNextDay() && current > until
+		&& containsDays)) && !one.isStoped()) {
 		JobsScheduleStopEvent event = new JobsScheduleStopEvent(one);
 		Bukkit.getPluginManager().callEvent(event);
 		if (event.isCancelled()) {
@@ -158,13 +157,14 @@ public class ScheduleManager {
 	conf.options().copyDefaults(true);
 	conf.options().copyHeader(true);
 
-	if (!conf.isConfigurationSection("Boost"))
+	ConfigurationSection section = conf.getConfigurationSection("Boost");
+	if (section == null)
 	    return;
 
-	List<String> sections = new ArrayList<>(conf.getConfigurationSection("Boost").getKeys(false));
+	List<String> sections = new ArrayList<>(section.getKeys(false));
 
 	for (String oneSection : sections) {
-	    ConfigurationSection path = conf.getConfigurationSection("Boost." + oneSection);
+	    ConfigurationSection path = section.getConfigurationSection(oneSection);
 
 	    if (path == null || !path.getBoolean("Enabled") || !path.getString("From", "").contains(":")
 			|| !path.getString("Until", "").contains(":") || !path.isList("Days") || !path.isList("Jobs"))
@@ -181,27 +181,23 @@ public class ScheduleManager {
 	    if (path.isList("MessageOnStart"))
 		sched.setMessageOnStart(path.getStringList("MessageOnStart"), path.getString("From"), path.getString("Until"));
 
-	    if (path.contains("BroadcastOnStart"))
-		sched.setBroadcastOnStart(path.getBoolean("BroadcastOnStart"));
+	    sched.setBroadcastOnStart(path.getBoolean("BroadcastOnStart", true));
 
 	    if (path.isList("MessageOnStop"))
 		sched.setMessageOnStop(path.getStringList("MessageOnStop"), path.getString("From"), path.getString("Until"));
 
-	    if (path.contains("BroadcastOnStop"))
-		sched.setBroadcastOnStop(path.getBoolean("BroadcastOnStop"));
-
-	    if (path.contains("BroadcastInterval"))
-		sched.setBroadcastInterval(path.getInt("BroadcastInterval"));
+	    sched.setBroadcastOnStop(path.getBoolean("BroadcastOnStop", true));
+	    sched.setBroadcastInterval(path.getInt("BroadcastInterval"));
 
 	    if (path.isList("BroadcastMessage"))
 		sched.setMessageToBroadcast(path.getStringList("BroadcastMessage"), path.getString("From"), path.getString("Until"));
 
 	    if (path.isDouble("Exp"))
-		sched.setBoost(CurrencyType.EXP, path.getDouble("Exp", 0D));
+		sched.setBoost(CurrencyType.EXP, path.getDouble("Exp"));
 	    if (path.isDouble("Money"))
-		sched.setBoost(CurrencyType.MONEY, path.getDouble("Money", 0D));
+		sched.setBoost(CurrencyType.MONEY, path.getDouble("Money"));
 	    if (path.isDouble("Points"))
-		sched.setBoost(CurrencyType.POINTS, path.getDouble("Points", 0D));
+		sched.setBoost(CurrencyType.POINTS, path.getDouble("Points"));
 
 	    BOOSTSCHEDULE.add(sched);
 	}

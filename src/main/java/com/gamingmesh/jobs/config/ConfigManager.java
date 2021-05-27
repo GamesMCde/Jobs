@@ -476,7 +476,7 @@ public class ConfigManager {
 	cfg.save();
     }
 
-    private static void generate(ConfigReader cfg, String pt) {
+    private void generate(ConfigReader cfg, String pt) {
 	cfg.get(pt + ".income", 1D);
 	cfg.get(pt + ".points", 1D);
 	cfg.get(pt + ".experience", 1D);
@@ -554,26 +554,28 @@ public class ConfigManager {
 
     @SuppressWarnings("deprecation")
     public KeyValues getKeyValue(String myKey, ActionType actionType, String jobName) {
-	String type = null,
-	    subType = "",
-	    meta = "";
+	String subType = "", meta = "";
+
 	final String finalMyKey = myKey;
-	int id = 0;
 
 	if (myKey.contains("-")) {
-	    // uses subType
 	    String[] split = myKey.split("-", 2);
+
 	    if (split.length >= 2) {
 		subType = ":" + split[1];
 		meta = split[1];
-		myKey = split[0];
 	    }
+
+	    myKey = split[0];
 	} else if (myKey.contains(":")) { // when we uses tipped arrow effect types
 	    String[] split = myKey.split(":", 2);
 	    meta = split.length > 1 ? split[1] : myKey;
 	    subType = ":all";
 	    myKey = split[0];
 	}
+
+	String type = null;
+	int id = 0;
 
 	CMIMaterial material = CMIMaterial.NONE;
 
@@ -935,9 +937,8 @@ public class ConfigManager {
 
 	for (String jobKey : jobsSection.getKeys(false)) {
 	    // Ignore example job
-	    if (jobKey.equalsIgnoreCase(EXAMPLEJOBINTERNALNAME)) {
+	    if (jobKey.equalsIgnoreCase(EXAMPLEJOBINTERNALNAME))
 		continue;
-	    }
 
 	    // Translating unicode
 	    jobKey = StringEscapeUtils.unescapeJava(jobKey);
@@ -1020,8 +1021,10 @@ public class ConfigManager {
 		displayMethod = DisplayMethod.NONE;
 	    }
 
+	    boolean isNoneJob = jobKey.equalsIgnoreCase("none");
+
 	    Parser maxExpEquation;
-	    String maxExpEquationInput = jobKey.equalsIgnoreCase("None") ? "0" : jobSection.getString("leveling-progression-equation", "0");
+	    String maxExpEquationInput = isNoneJob ? "0" : jobSection.getString("leveling-progression-equation", "0");
 	    try {
 		maxExpEquation = new Parser(maxExpEquationInput);
 		// test equation
@@ -1050,7 +1053,7 @@ public class ConfigManager {
 	    }
 
 	    Parser expEquation;
-	    String expEquationInput = jobKey.equalsIgnoreCase("None") ? "0" : jobSection.getString("experience-progression-equation", "0");
+	    String expEquationInput = isNoneJob ? "0" : jobSection.getString("experience-progression-equation", "0");
 	    try {
 		expEquation = new Parser(expEquationInput);
 		// test equation
@@ -1490,20 +1493,29 @@ public class ConfigManager {
 
 			    double income = 0D;
 			    if (sep.length >= 2) {
-				income = Double.parseDouble(sep[1]);
-				income = updateValue(CurrencyType.MONEY, income);
+				try {
+				    income = Double.parseDouble(sep[1]);
+				    income = updateValue(CurrencyType.MONEY, income);
+				} catch (NumberFormatException e) {
+				}
 			    }
 
 			    double points = 0D;
 			    if (sep.length >= 3) {
-				points = Double.parseDouble(sep[2]);
-				points = updateValue(CurrencyType.POINTS, points);
+				try {
+				    points = Double.parseDouble(sep[2]);
+				    points = updateValue(CurrencyType.POINTS, points);
+				} catch (NumberFormatException e) {
+				}
 			    }
 
 			    double experience = 0D;
 			    if (sep.length >= 4) {
-				experience = Double.parseDouble(sep[3]);
-				experience = updateValue(CurrencyType.EXP, experience);
+				try {
+				    experience = Double.parseDouble(sep[3]);
+				    experience = updateValue(CurrencyType.EXP, experience);
+				} catch (NumberFormatException e) {
+				}
 			    }
 
 			    jobInfo.add(new JobInfo(actionType, id, meta, type + subType, income, incomeEquation, experience, expEquation, pointsEquation, points, 1,
@@ -1565,7 +1577,7 @@ public class ConfigManager {
 		job.setJobInfo(actionType, jobInfo);
 	    }
 
-	    if (jobKey.equalsIgnoreCase("none"))
+	    if (isNoneJob)
 		Jobs.setNoneJob(job);
 	    else {
 		return job;
@@ -1576,8 +1588,6 @@ public class ConfigManager {
     }
 
     private double updateValue(CurrencyType type, double amount) {
-	Double mult = Jobs.getGCManager().getGeneralMulti(type);
-	amount += (amount * mult);
-	return amount;
+	return amount += (amount * Jobs.getGCManager().getGeneralMulti(type));
     }
 }

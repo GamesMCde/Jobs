@@ -32,6 +32,7 @@ public class JobsManager {
 	    // If it MySQL lets change to SqLite
 	    dbType = DataBaseType.SqLite;
 	    dao = startSqlite();
+
 	    if (dao != null)
 		dao.setDbType(dbType);
 	    break;
@@ -39,6 +40,7 @@ public class JobsManager {
 	    // If it SqLite lets change to MySQL
 	    dbType = DataBaseType.MySQL;
 	    dao = startMysql();
+
 	    if (dao != null)
 		dao.setDbType(dbType);
 	    break;
@@ -64,6 +66,7 @@ public class JobsManager {
 
     public void start() {
 	ConfigReader c = Jobs.getGCManager().getConfig();
+
 	c.addComment("storage.method", "storage method, can be MySQL or sqlite");
 	String storageMethod = c.get("storage.method", "sqlite");
 	c.addComment("mysql", "Requires Mysql");
@@ -73,8 +76,8 @@ public class JobsManager {
 	hostname = c.get("mysql.hostname", c.getC().getString("mysql-hostname", "localhost:3306"));
 	database = c.get("mysql.database", c.getC().getString("mysql-database", "minecraft"));
 	prefix = c.get("mysql.table-prefix", c.getC().getString("mysql-table-prefix", "jobs_"));
-	certificate = c.get("mysql.verify-server-certificate", c.getC().getBoolean("verify-server-certificate", false));
-	ssl = c.get("mysql.use-ssl", c.getC().getBoolean("use-ssl", false));
+	certificate = c.get("mysql.verify-server-certificate", c.getC().getBoolean("verify-server-certificate"));
+	ssl = c.get("mysql.use-ssl", c.getC().getBoolean("use-ssl"));
 	autoReconnect = c.get("mysql.auto-reconnect", c.getC().getBoolean("auto-reconnect", true));
 	characterEncoding = c.get("mysql.characterEncoding", "utf8");
 	encoding = c.get("mysql.encoding", "UTF-8");
@@ -82,26 +85,31 @@ public class JobsManager {
 	if (storageMethod.equalsIgnoreCase("mysql")) {
 	    dbType = DataBaseType.MySQL;
 	    dao = startMysql();
-	} else if (storageMethod.equalsIgnoreCase("sqlite")) {
-	    dbType = DataBaseType.SqLite;
-	    dao = startSqlite();
 	} else {
-	    Jobs.consoleMsg("&cInvalid storage method! Changing method to sqlite!");
-	    c.set("storage.method", "sqlite");
+	    if (!storageMethod.equalsIgnoreCase("sqlite")) {
+		Jobs.consoleMsg("&cInvalid storage method! Changing method to sqlite!");
+		c.set("storage.method", "sqlite");
+	    }
+
 	    dbType = DataBaseType.SqLite;
 	    dao = startSqlite();
 	}
+
 	Jobs.setDAO(dao);
     }
 
     private synchronized JobsMySQL startMysql() {
 	ConfigReader c = Jobs.getGCManager().getConfig();
 	String legacyUrl = c.getC().getString("mysql.url");
+
 	if (legacyUrl != null) {
 	    String jdbcString = "jdbc:mysql://";
+
 	    if (legacyUrl.toLowerCase().startsWith(jdbcString)) {
 		legacyUrl = legacyUrl.substring(jdbcString.length());
-		String[] parts = legacyUrl.split("/");
+
+		String[] parts = legacyUrl.split("/", 2);
+
 		if (parts.length >= 2) {
 		    hostname = c.get("mysql.hostname", parts[0]);
 		    database = c.get("mysql.database", parts[1]);
