@@ -180,6 +180,12 @@ public class Jobs extends JavaPlugin {
 	return Optional.empty();
     }
 
+    public void removeBlockOwnerShip(org.bukkit.block.Block block) {
+	for (BlockOwnerShip ship : blockOwnerShips) {
+	    ship.remove(block);
+	}
+    }
+
     /**
      * @return a set of block owner ships.
      */
@@ -476,11 +482,10 @@ public class Jobs extends JavaPlugin {
      */
     public static Job getJob(String jobName) {
 	for (Job job : jobs) {
-	    if (job.getName().equalsIgnoreCase(jobName))
-		return job;
-	    if (job.getJobFullName().equalsIgnoreCase(jobName))
+	    if (job.getName().equalsIgnoreCase(jobName) || job.getJobFullName().equalsIgnoreCase(jobName))
 		return job;
 	}
+
 	return null;
     }
 
@@ -705,8 +710,9 @@ public class Jobs extends JavaPlugin {
 
 	try {
 	    Class.forName("net.kyori.adventure.text.Component");
+	    org.bukkit.inventory.meta.ItemMeta.class.getDeclaredMethod("displayName");
 	    kyoriSupported = true;
-	} catch (ClassNotFoundException e) {
+	} catch (NoSuchMethodException | ClassNotFoundException e) {
 	}
 
 	placeholderAPIEnabled = setupPlaceHolderAPI();
@@ -862,10 +868,7 @@ public class Jobs extends JavaPlugin {
 
     @Override
     public void onDisable() {
-	if (instance == null)
-	    return;
-
-	HandlerList.unregisterAll(instance);
+	HandlerList.unregisterAll(this);
 
 	if (dao != null) {
 	    dao.saveExplore();
@@ -888,8 +891,6 @@ public class Jobs extends JavaPlugin {
 	if (dao != null) {
 	    dao.closeConnections();
 	}
-
-	instance = null;
     }
 
     private static void checkDailyQuests(JobsPlayer jPlayer, Job job, ActionInfo info) {
@@ -969,7 +970,6 @@ public class Jobs extends JavaPlugin {
      * @param ent {@link Entity}
      * @param victim {@link LivingEntity}
      * @param block {@link Block}
-     * @see #action(JobsPlayer, ActionInfo, Block, Entity, LivingEntity)
      */
     public static void action(JobsPlayer jPlayer, ActionInfo info, Block block, Entity ent, LivingEntity victim) {
 	if (jPlayer == null)
@@ -1040,8 +1040,8 @@ public class Jobs extends JavaPlugin {
 	    if (!jPlayer.isUnderLimit(CurrencyType.MONEY, income)) {
 		if (gConfigManager.useMaxPaymentCurve) {
 		    double percentOver = jPlayer.percentOverLimit(CurrencyType.MONEY);
-		    float factor = gConfigManager.maxPaymentCurveFactor;
-		    double percentLoss = 100 / ((1 / factor * percentOver * percentOver) + 1);
+		    double percentLoss = 100 / ((1 / gConfigManager.maxPaymentCurveFactor * percentOver * percentOver) + 1);
+
 		    income = income - (income * percentLoss / 100);
 		} else
 		    income = 0D;
@@ -1091,9 +1091,7 @@ public class Jobs extends JavaPlugin {
 		    expiredJobs.add(prog.getJob());
 		}
 
-		int level = prog.getLevel();
-
-		JobInfo jobinfo = prog.getJob().getJobInfo(info, level);
+		JobInfo jobinfo = prog.getJob().getJobInfo(info, prog.getLevel());
 
 		checkDailyQuests(jPlayer, prog.getJob(), info);
 
@@ -1101,9 +1099,9 @@ public class Jobs extends JavaPlugin {
 		    continue;
 		}
 
-		double income = jobinfo.getIncome(level, numjobs, jPlayer.maxJobsEquation);
-		double pointAmount = jobinfo.getPoints(level, numjobs, jPlayer.maxJobsEquation);
-		double expAmount = jobinfo.getExperience(level, numjobs, jPlayer.maxJobsEquation);
+		double income = jobinfo.getIncome(prog.getLevel(), numjobs, jPlayer.maxJobsEquation);
+		double pointAmount = jobinfo.getPoints(prog.getLevel(), numjobs, jPlayer.maxJobsEquation);
+		double expAmount = jobinfo.getExperience(prog.getLevel(), numjobs, jPlayer.maxJobsEquation);
 
 		if (income == 0D && pointAmount == 0D && expAmount == 0D)
 		    continue;

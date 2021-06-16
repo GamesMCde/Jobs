@@ -223,7 +223,7 @@ public class JobsPlayer {
 	if (data.isReachedLimit(type, getLimit(type))) {
 	    String name = type.getName().toLowerCase();
 
-	    if (player.isOnline() && !data.isInformed() && !data.isReseted(type)) {
+	    if (!data.isInformed() && player.isOnline() && !data.isReseted(type)) {
 		if (Jobs.getGCManager().useMaxPaymentCurve) {
 		    player.sendMessage(Jobs.getLanguage().getMessage("command.limit.output.reached" + name + "limit"));
 		    player.sendMessage(Jobs.getLanguage().getMessage("command.limit.output.reached" + name + "limit2"));
@@ -328,7 +328,7 @@ public class JobsPlayer {
     public double getBoost(String jobName, CurrencyType type, boolean force) {
 	double boost = 0D;
 
-	if (!isOnline() || type == null)
+	if (type == null || !isOnline())
 	    return boost;
 
 	long time = System.currentTimeMillis();
@@ -1353,12 +1353,21 @@ public class JobsPlayer {
      * @return max allowed owner ship
      */
     public int getMaxOwnerShipAllowed(BlockTypes type) {
-	String perm = "jobs.max" + (type == BlockTypes.FURNACE
-	    ? "furnaces" : type == BlockTypes.BLAST_FURNACE ? "blastfurnaces" : type == BlockTypes.SMOKER ? "smokers" : type == BlockTypes.BREWING_STAND ? "brewingstands" : "");
-	if (perm.isEmpty())
-	    return 0;
+	double maxV = Jobs.getPermissionManager().getMaxPermission(this, "jobs.maxownership");
+	if (maxV > 0D) {
+	    return (int) maxV;
+	}
 
-	Double maxV = Jobs.getPermissionManager().getMaxPermission(this, perm);
+	if (type != BlockTypes.BREWING_STAND &&
+	    (maxV = Jobs.getPermissionManager().getMaxPermission(this, "jobs.maxfurnaceownership")) > 0D) {
+	    return (int) maxV;
+	}
+
+	String perm = "jobs.max" + (type == BlockTypes.FURNACE
+	    ? "furnaces" : type == BlockTypes.BLAST_FURNACE ? "blastfurnaces" : type == BlockTypes.SMOKER ? "smokers"
+	    : type == BlockTypes.BREWING_STAND ? "brewingstands" : "");
+
+	maxV = Jobs.getPermissionManager().getMaxPermission(this, perm);
 
 	if (maxV == 0D && type == BlockTypes.FURNACE)
 	    maxV = (double) Jobs.getGCManager().getFurnacesMaxDefault();
@@ -1372,7 +1381,7 @@ public class JobsPlayer {
 	if (maxV == 0D && type == BlockTypes.BREWING_STAND)
 	    maxV = (double) Jobs.getGCManager().getBrewingStandsMaxDefault();
 
-	return maxV.intValue();
+	return (int) maxV;
     }
 
     public int getSkippedQuests() {

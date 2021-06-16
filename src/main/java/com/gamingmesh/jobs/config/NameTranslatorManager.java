@@ -46,47 +46,40 @@ public class NameTranslatorManager {
 	    case BREW:
 	    case FISH:
 	    case STRIPLOGS:
+		String matName = materialName;
 		materialName = materialName.replace(" ", "");
 
 		CMIMaterial mat = CMIMaterial.get(materialName);
 		NameList nameLs = listOfNames.get(mat);
 
-	    if (nameLs != null) {
-		if (meta != null && !meta.isEmpty() && mat.isCanHavePotionType() && Util.getPotionByName(meta) != null) {
-		    return nameLs.getName() + ":" + meta;
-		}
+		if (nameLs != null) {
+		    if (meta != null && !meta.isEmpty() && mat.isCanHavePotionType() && Util.getPotionByName(meta) != null) {
+			return nameLs.getName() + ":" + meta;
+		    }
 
-		return nameLs.getName();
-	    }
-
-		if (name != null && !name.isEmpty()) {
-		    mat = CMIMaterial.get(materialName);
-		    nameLs = listOfNames.get(mat);
-
-		    if (nameLs != null) {
+		    if (name != null && !name.isEmpty()) {
 			return nameLs.getName();
 		    }
 		}
 
 		if (meta != null && !meta.isEmpty()) {
 		    mat = CMIMaterial.get(materialName + ":" + meta);
-		    nameLs = listOfNames.get(mat);
 
-		    if (nameLs == null) {
+		    if ((nameLs = listOfNames.get(mat)) == null) {
 			mat = CMIMaterial.get(materialName.replace(" ", ""));
-			nameLs = listOfNames.get(mat);
 
-			NameList nameMeta = listOfNames.get(CMIMaterial.get(meta.replace(" ", "")));
-			if (nameLs != null && nameMeta != null) {
-			    return nameLs + ":" + nameMeta;
+			if ((nameLs = listOfNames.get(mat)) != null) {
+			    NameList nameMeta = listOfNames.get(CMIMaterial.get(meta.replace(" ", "")));
+
+			    if (nameMeta != null) {
+				return nameLs.getName() + ":" + nameMeta.getMeta();
+			    }
 			}
 
 			if (mat == CMIMaterial.NONE) {
-			    String fallbackMaterialName = Arrays.stream(materialName.split("\\s|:"))
+			    return Arrays.stream(matName.split("\\s|:"))
 				.map(word -> word.substring(0, 1).toUpperCase() + word.substring(1).toLowerCase())
 				.collect(Collectors.joining(" ")); // returns capitalized word (from this -> To This)
-
-			    return fallbackMaterialName;
 			}
 
 			return mat.getName();
@@ -131,8 +124,8 @@ public class NameTranslatorManager {
 		String mName = materialName;
 		String level = "";
 
-		if (mName.contains(":")) {
-		    String[] split = materialName.split(":", 2);
+		String[] split = materialName.split(":", 2);
+		if (split.length > 1) {
 		    mName = split[0];
 		    level = ":" + split[1];
 		}
@@ -150,10 +143,9 @@ public class NameTranslatorManager {
 		    }
 		}
 
-		String fallbackColorName = Arrays.stream(name.split("\\s|:|-"))
-		.map(word -> word.substring(0, 1).toUpperCase() + word.substring(1).toLowerCase())
-		.collect(Collectors.joining(" ")); // returns capitalized word (from this -> To This)
-		return fallbackColorName;
+		return name == null ? "nocolor" : Arrays.stream(name.split("\\s|:|-"))
+		    .map(word -> word.substring(0, 1).toUpperCase() + word.substring(1).toLowerCase())
+		    .collect(Collectors.joining(" ")); // returns capitalized word (from this -> To This)
 	    case MMKILL:
 		NameList got = listOfMMEntities.get(materialName.toLowerCase());
 
@@ -316,56 +308,40 @@ public class NameTranslatorManager {
 		}
 
 		String n = mat.getLegacyId() + (mat.getLegacyData() == -1 ? "" : ":" + mat.getLegacyData());
-		String name = null;
+		String name = c.getC().getString("ItemList." + mat.toString());
 
-		if (c.getC().isString("ItemList." + mat.toString())) {
-		    name = c.getC().getString("ItemList." + mat.toString());
-		}
-
-		if (name == null && c.getC().isConfigurationSection("ItemList." + n)) {
+		if (name == null) {
 		    name = c.getC().getString("ItemList." + n + ".Name");
 		}
 
 		if (name == null) {
 		    n = mat.getLegacyId() + ":" + mat.getLegacyData();
-		    if (c.getC().isConfigurationSection("ItemList." + n)) {
-			name = c.getC().getString("ItemList." + n + ".Name");
-		    }
+		    name = c.getC().getString("ItemList." + n + ".Name");
 		}
 
 		if (name == null) {
 		    n = String.valueOf(mat.getLegacyId());
-		    if (c.getC().isConfigurationSection("ItemList." + n)) {
-			name = c.getC().getString("ItemList." + n + ".Name");
-		    }
+		    name = c.getC().getString("ItemList." + n + ".Name");
 		}
 
 		if (name == null) {
 		    n = String.valueOf(mat.getId());
-		    if (c.getC().isConfigurationSection("ItemList." + n)) {
-			name = c.getC().getString("ItemList." + n + ".Name");
-		    }
+		    name = c.getC().getString("ItemList." + n + ".Name");
 		}
 
 		if (name == null) {
 		    n = mat.getLegacyId() + ":" + mat.getLegacyData() + "-" + mat.getBukkitName();
-		    if (c.getC().isString("ItemList." + n)) {
-			name = c.getC().getString("ItemList." + n);
-		    }
+		    name = c.getC().getString("ItemList." + n);
 		}
 
 		if (name == null) {
-		    n = String.valueOf(mat.getLegacyId()) + "-" + mat.getBukkitName();
-		    if (c.getC().isString("ItemList." + n)) {
-			name = c.getC().getString("ItemList." + n);
-		    }
+		    n = mat.getLegacyId() + "-" + mat.getBukkitName();
+		    name = c.getC().getString("ItemList." + n);
 		}
 
 		if (name == null) {
-		    n = String.valueOf(mat.getId()) + "-" + mat.getBukkitName();
-		    if (c.getC().isString("ItemList." + n)) {
-			name = c.getC().getString("ItemList." + n);
-		    }
+		    n = mat.getId() + "-" + mat.getBukkitName();
+		    name = c.getC().getString("ItemList." + n);
 		}
 
 		if (name == null) {
@@ -381,18 +357,11 @@ public class NameTranslatorManager {
 		    continue;
 
 		String n = Integer.toString(ent.getId());
-
-		String name = null;
-
-		if (c.getC().isConfigurationSection("EntityList." + n)) {
-		    name = c.getC().getString("EntityList." + n + ".Name");
-		}
+		String name = c.getC().getString("EntityList." + n + ".Name");
 
 		if (name == null) {
 		    n += "-" + ent.toString();
-		    if (c.getC().isConfigurationSection("EntityList." + n)) {
-			name = c.getC().getString("EntityList." + n);
-		    }
+		    name = c.getC().getString("EntityList." + n);
 		}
 
 		if (name == null) {
